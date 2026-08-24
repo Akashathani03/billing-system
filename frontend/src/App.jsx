@@ -11,7 +11,8 @@ import { CustomerDetailPage } from './pages/CustomerDetailPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { NewBillPage } from './pages/NewBillPage';
 import { DraftsPage } from './pages/DraftsPage';
-import { ComingSoonPage } from './pages/ComingSoonPage';
+import { BillsPage } from './pages/BillsPage';
+import { InvoiceDetailPage } from './pages/InvoiceDetailPage';
 
 const queryClient = new QueryClient();
 
@@ -28,7 +29,8 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/new-bill" element={<NewBillPage />} />
                 <Route path="/new-bill/:id" element={<NewBillPage />} />
-                <Route path="/bills" element={<ComingSoonPage title="Bills" />} />
+                <Route path="/bills" element={<BillsPage />} />
+                <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
                 <Route path="/products" element={<ProductsPage />} />
                 <Route path="/customers" element={<CustomersPage />} />
                 <Route path="/customers/:id" element={<CustomerDetailPage />} />

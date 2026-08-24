@@ -44,3 +44,14 @@ export async function finalize(req, res) {
   }
   res.json({ invoice });
 }
+
+export async function updatePaymentStatus(req, res) {
+  const invoice = await invoiceService.updatePaymentStatus(req.params.id, {
+    newStatus: req.body.paymentStatus,
+    changedBy: req.user.id,
+  });
+  if (!invoice) {
+    return res.status(404).json({ error: { message: 'Invoice not found', code: 'NOT_FOUND' } });
+  }
+  res.json({ invoice });
+}

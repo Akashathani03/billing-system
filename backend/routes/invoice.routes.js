@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
-import { create, list, getOne, update, finalize } from '../controllers/invoice.controller.js';
+import { create, list, getOne, update, finalize, updatePaymentStatus } from '../controllers/invoice.controller.js';
 import { handleValidation } from '../middleware/validate.middleware.js';
 import { requireAuth } from '../middleware/auth.middleware.js';
 
@@ -17,7 +17,18 @@ const itemValidators = [
   body('items.*.quantity').isFloat({ gt: 0 }).withMessage('Quantity must be greater than 0'),
 ];
 
-router.get('/', query('status').optional().isIn(['draft', 'finalized', 'cancelled']), handleValidation, list);
+router.get(
+  '/',
+  [
+    query('status').optional().isIn(['draft', 'finalized', 'cancelled']),
+    query('paymentMethod').optional().isIn(PAYMENT_METHODS),
+    query('paymentStatus').optional().isIn(PAYMENT_STATUSES),
+    query('dateFrom').optional().isISO8601().withMessage('dateFrom must be a valid date'),
+    query('dateTo').optional().isISO8601().withMessage('dateTo must be a valid date'),
+  ],
+  handleValidation,
+  list,
+);
 
 router.post(
   '/',
@@ -47,5 +58,13 @@ router.patch(
 );
 
 router.post('/:id/finalize', param('id').isMongoId(), handleValidation, finalize);
+
+router.patch(
+  '/:id/payment-status',
+  param('id').isMongoId(),
+  body('paymentStatus').isIn(PAYMENT_STATUSES).withMessage('paymentStatus must be "paid" or "pending"'),
+  handleValidation,
+  updatePaymentStatus,
+);
 
 export default router;

@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useCustomerQuery, useUpdateCustomerMutation } from '../hooks/useCustomers';
+import { useCustomerInvoicesQuery } from '../hooks/useInvoices';
 import { BottomSheet } from '../components/BottomSheet';
 import { CustomerForm } from '../components/CustomerForm';
+import { InvoiceCard } from '../components/InvoiceCard';
 
 export function CustomerDetailPage() {
   const { id } = useParams();
   const { data, isLoading, isError, error, refetch } = useCustomerQuery(id);
+  const invoiceHistory = useCustomerInvoicesQuery(id);
   const updateCustomer = useUpdateCustomerMutation(id);
   const [editOpen, setEditOpen] = useState(false);
 
@@ -47,11 +50,35 @@ export function CustomerDetailPage() {
             </button>
           </div>
 
-          <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-4">
-            <h2 className="text-sm font-semibold text-neutral-700">Billing History</h2>
-            <p className="mt-2 text-sm text-neutral-500">
-              No invoices yet — billing history will appear here once invoicing is live.
-            </p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-neutral-200 bg-white p-4 text-center">
+              <p className="text-2xl font-bold text-neutral-900">{invoiceHistory.data?.totalBills ?? '—'}</p>
+              <p className="text-xs text-neutral-500">Total Bills</p>
+            </div>
+            <div className="rounded-lg border border-neutral-200 bg-white p-4 text-center">
+              <p className="text-2xl font-bold text-neutral-900">
+                {invoiceHistory.data ? `₹${invoiceHistory.data.totalPurchaseValue.toFixed(2)}` : '—'}
+              </p>
+              <p className="text-xs text-neutral-500">Total Purchases</p>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <h2 className="text-sm font-semibold text-neutral-700">Recent Bills</h2>
+            <div className="mt-2 space-y-2">
+              {invoiceHistory.isLoading && (
+                <p className="py-4 text-center text-sm text-neutral-500">Loading…</p>
+              )}
+              {invoiceHistory.isError && (
+                <p className="py-4 text-center text-sm text-red-700">Unable to load billing history.</p>
+              )}
+              {invoiceHistory.data?.invoices.length === 0 && (
+                <p className="py-4 text-center text-sm text-neutral-500">No bills yet for this customer.</p>
+              )}
+              {invoiceHistory.data?.invoices.map((invoice) => (
+                <InvoiceCard key={invoice._id} invoice={invoice} />
+              ))}
+            </div>
           </div>
 
           <BottomSheet open={editOpen} title="Edit Customer" onClose={() => setEditOpen(false)}>

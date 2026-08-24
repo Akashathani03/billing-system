@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Invoice from '../models/Invoice.js';
 import Customer from '../models/Customer.js';
 import Product from '../models/Product.js';
@@ -5,7 +6,7 @@ import { DEFAULT_TAX_RATE } from '../config/businessConfig.js';
 import { lineTotalPaise, taxAmountPaise, fromPaise } from '../utils/money.js';
 import { amountToWords } from '../utils/amountInWords.js';
 import { getNextInvoiceNumber } from './counter.service.js';
-import { parsePagination } from '../utils/pagination.js';
+import { parsePagination, buildSearchRegex } from '../utils/pagination.js';
 
 export class InvoiceError extends Error {
   constructor(message, code = 'VALIDATION_ERROR', status = 400) {
@@ -104,13 +105,40 @@ export async function getInvoiceById(id) {
   return Invoice.findById(id);
 }
 
-export async function listInvoices(query) {
-  const { page, limit, skip } = parsePagination(query);
+/** Shared filter-building for GET /api/invoices and the customer-history endpoint. */
+function buildInvoiceListFilter(query) {
   const filter = {};
   if (query.status) filter.status = query.status;
+  if (query.paymentMethod) filter.paymentMethod = query.paymentMethod;
+  if (query.paymentStatus) filter.paymentStatus = query.paymentStatus;
+
+  if (query.dateFrom || query.dateTo) {
+    filter.finalizedAt = {};
+    // Date-only strings (YYYY-MM-DD) parse as UTC midnight. For the upper
+    // bound, add exactly 24h in UTC and use an exclusive `$lt` rather than
+    // `setHours(23,59,59,999)`, which mutates in the SERVER's local
+    // timezone and would shift the cutoff by its UTC offset — silently
+    // wrong on any server not running in UTC.
+    if (query.dateFrom) filter.finalizedAt.$gte = new Date(query.dateFrom);
+    if (query.dateTo) {
+      filter.finalizedAt.$lt = new Date(new Date(query.dateTo).getTime() + 24 * 60 * 60 * 1000);
+    }
+  }
+
+  if (query.search?.trim()) {
+    const regex = buildSearchRegex(query.search);
+    filter.$or = [{ invoiceNumber: regex }, { 'customer.name': regex }, { 'customer.mobile': regex }];
+  }
+
+  return filter;
+}
+
+export async function listInvoices(query) {
+  const { page, limit, skip } = parsePagination(query);
+  const filter = buildInvoiceListFilter(query);
 
   const [invoices, total] = await Promise.all([
-    Invoice.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Invoice.find(filter).sort({ finalizedAt: -1, createdAt: -1 }).skip(skip).limit(limit),
     Invoice.countDocuments(filter),
   ]);
 
@@ -178,6 +206,7 @@ export async function finalizeInvoice(id) {
       $set: {
         status: 'finalized',
         invoiceNumber,
+        finalizedAt: new Date(),
         customer,
         items: financials.items,
         subtotal: financials.subtotal,
@@ -195,4 +224,103 @@ export async function finalizeInvoice(id) {
   }
 
   return finalized;
+}
+
+/**
+ * Moves paymentStatus pending -> paid and records an audit entry. This is
+ * the ONLY mutation allowed on a finalized invoice — invoiceNumber,
+ * customer, items, and all money fields are untouched (the $set below
+ * literally cannot reach them). The MVP only supports one-directional
+ * pending -> paid; any other requested transition (including paid -> paid,
+ * a no-op re-request) is rejected rather than silently accepted, so a
+ * "Mark as Paid" tap can never be ambiguous about what it did.
+ *
+ * Race safety mirrors finalizeInvoice: the atomic update's filter re-checks
+ * paymentStatus:'pending' at write time, so if two requests race, only the
+ * one that's still looking at a genuinely-pending invoice succeeds — the
+ * loser's filter won't match and it gets CONFLICT instead of a second
+ * audit entry for the same transition.
+ */
+export async function updatePaymentStatus(id, { newStatus, changedBy }) {
+  const invoice = await Invoice.findById(id);
+  if (!invoice) return null;
+
+  if (invoice.status !== 'finalized') {
+    throw new InvoiceError('Only finalized invoices have a payment status to update', 'INVALID_STATE', 409);
+  }
+
+  if (invoice.paymentStatus !== 'pending' || newStatus !== 'paid') {
+    throw new InvoiceError('Payment status can only move from pending to paid', 'INVALID_TRANSITION', 409);
+  }
+
+  const updated = await Invoice.findOneAndUpdate(
+    { _id: id, status: 'finalized', paymentStatus: 'pending' },
+    {
+      $set: { paymentStatus: 'paid' },
+      $push: {
+        paymentHistory: { previousStatus: 'pending', newStatus: 'paid', changedBy, changedAt: new Date() },
+      },
+    },
+    { returnDocument: 'after' },
+  );
+
+  if (!updated) {
+    throw new InvoiceError('Payment status was already updated by another request', 'CONFLICT', 409);
+  }
+
+  return updated;
+}
+
+/**
+ * A customer's finalized billing history plus aggregate totals. Cancelled
+ * invoices are excluded entirely (not just from the totals) — a cancelled
+ * invoice never represents a real completed sale for this customer, so it
+ * shouldn't appear in "their bills" any more than a draft would. Drafts are
+ * excluded for the same reason: nothing was ever actually billed.
+ */
+export async function getInvoicesByCustomer(customerId, query) {
+  const { page, limit, skip } = parsePagination(query);
+  const filter = { 'customer.customerId': new mongoose.Types.ObjectId(customerId), status: 'finalized' };
+
+  const [invoices, totalBills, totalsAgg] = await Promise.all([
+    Invoice.find(filter).sort({ finalizedAt: -1 }).skip(skip).limit(limit),
+    Invoice.countDocuments(filter),
+    Invoice.aggregate([{ $match: filter }, { $group: { _id: null, totalPurchaseValue: { $sum: '$total' } } }]),
+  ]);
+
+  return {
+    invoices,
+    totalBills,
+    totalPurchaseValue: totalsAgg[0]?.totalPurchaseValue || 0,
+    page,
+    limit,
+  };
+}
+
+/**
+ * Sums finalized-invoice totals by payment method, plus the pending total,
+ * over an optional base filter (e.g. a date range). Not wired to any route
+ * yet — Phase 5's dashboard is the intended caller — but written now so
+ * that work reuses this instead of duplicating the aggregation. `filter`
+ * must already contain real ObjectId instances for any id fields (this
+ * runs through aggregate(), which — unlike find()/countDocuments() — does
+ * not auto-cast query values).
+ */
+export async function getPaymentTotals(filter = {}) {
+  const baseFilter = { ...filter, status: 'finalized' };
+
+  const [byMethod, pendingAgg] = await Promise.all([
+    Invoice.aggregate([{ $match: baseFilter }, { $group: { _id: '$paymentMethod', total: { $sum: '$total' } } }]),
+    Invoice.aggregate([
+      { $match: { ...baseFilter, paymentStatus: 'pending' } },
+      { $group: { _id: null, total: { $sum: '$total' } } },
+    ]),
+  ]);
+
+  const totals = { cash: 0, upi: 0, card: 0, credit: 0 };
+  byMethod.forEach((row) => {
+    totals[row._id] = row.total;
+  });
+
+  return { ...totals, pending: pendingAgg[0]?.total || 0 };
 }

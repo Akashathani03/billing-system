@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, param } from 'express-validator';
-import { list, create, getOne, update } from '../controllers/customer.controller.js';
+import { list, create, getOne, update, getInvoiceHistory } from '../controllers/customer.controller.js';
 import { handleValidation } from '../middleware/validate.middleware.js';
 import { requireAuth } from '../middleware/auth.middleware.js';
 
@@ -39,5 +39,6 @@ router.patch(
   handleValidation,
   update,
 );
+router.get('/:id/invoices', param('id').isMongoId(), handleValidation, getInvoiceHistory);
 
 export default router;
