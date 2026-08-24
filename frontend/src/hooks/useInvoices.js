@@ -68,6 +68,14 @@ export function useFinalizeInvoiceMutation() {
   });
 }
 
+export function useDeleteDraftMutation() {
+  const invalidate = useInvalidateInvoices();
+  return useMutation({
+    mutationFn: invoicesApi.deleteDraft,
+    onSuccess: invalidate,
+  });
+}
+
 export function useMarkPaidMutation() {
   const invalidate = useInvalidateInvoices();
   return useMutation({

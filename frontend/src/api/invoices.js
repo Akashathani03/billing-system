@@ -36,6 +36,10 @@ export function finalizeInvoice(id) {
   return apiFetch(`/invoices/${id}/finalize`, { method: 'POST' });
 }
 
+export function deleteDraft(id) {
+  return apiFetch(`/invoices/${id}`, { method: 'DELETE' });
+}
+
 export function markInvoicePaid(id) {
   return apiFetch(`/invoices/${id}/payment-status`, {
     method: 'PATCH',

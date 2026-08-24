@@ -37,6 +37,14 @@ export async function update(req, res) {
   res.json({ invoice });
 }
 
+export async function remove(req, res) {
+  const invoice = await invoiceService.deleteDraftInvoice(req.params.id);
+  if (!invoice) {
+    return res.status(404).json({ error: { message: 'Invoice not found', code: 'NOT_FOUND' } });
+  }
+  res.json({ message: 'Draft deleted' });
+}
+
 export async function finalize(req, res) {
   const invoice = await invoiceService.finalizeInvoice(req.params.id);
   if (!invoice) {

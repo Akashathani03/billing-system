@@ -175,6 +175,25 @@ export async function updateDraftInvoice(id, { customerId, items, paymentMethod,
 }
 
 /**
+ * Discards a draft outright. Unlike finalized invoices — which are never
+ * hard-deleted, per the immutability guarantee — a draft was never an
+ * actual sale, so there's no historical record to preserve; the owner
+ * should be able to throw away a bill they started and don't want. Only
+ * ever allowed while status is still 'draft'.
+ */
+export async function deleteDraftInvoice(id) {
+  const invoice = await Invoice.findById(id);
+  if (!invoice) return null;
+
+  if (invoice.status !== 'draft') {
+    throw new InvoiceError('Only draft invoices can be deleted', 'INVALID_STATE', 409);
+  }
+
+  await Invoice.findByIdAndDelete(id);
+  return invoice;
+}
+
+/**
  * Finalizes a draft: re-derives the customer snapshot and every item's
  * price fresh from the database (ignoring whatever was cached on the
  * draft), allocates a permanent sequential invoice number, and atomically

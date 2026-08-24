@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
-import { create, list, getOne, update, finalize, updatePaymentStatus } from '../controllers/invoice.controller.js';
+import { create, list, getOne, update, remove, finalize, updatePaymentStatus } from '../controllers/invoice.controller.js';
 import { downloadInvoicePdf } from '../controllers/pdf.controller.js';
 import { handleValidation } from '../middleware/validate.middleware.js';
 import { requireAuth } from '../middleware/auth.middleware.js';
@@ -59,6 +59,8 @@ router.patch(
   handleValidation,
   update,
 );
+
+router.delete('/:id', param('id').isMongoId(), handleValidation, remove);
 
 router.post('/:id/finalize', param('id').isMongoId(), handleValidation, finalize);
 
