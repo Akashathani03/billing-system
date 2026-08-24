@@ -29,7 +29,9 @@ export function MorePage() {
         <Link to="/customers" className="block px-4 py-3 text-neutral-900 active:bg-neutral-50">
           Customers
         </Link>
-        <div className="px-4 py-3 text-neutral-400">Drafts — coming soon</div>
+        <Link to="/more/drafts" className="block px-4 py-3 text-neutral-900 active:bg-neutral-50">
+          Drafts
+        </Link>
       </div>
 
       <button

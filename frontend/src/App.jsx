@@ -9,6 +9,8 @@ import { MorePage } from './pages/MorePage';
 import { CustomersPage } from './pages/CustomersPage';
 import { CustomerDetailPage } from './pages/CustomerDetailPage';
 import { ProductsPage } from './pages/ProductsPage';
+import { NewBillPage } from './pages/NewBillPage';
+import { DraftsPage } from './pages/DraftsPage';
 import { ComingSoonPage } from './pages/ComingSoonPage';
 
 const queryClient = new QueryClient();
@@ -24,12 +26,14 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<AppShell />}>
                 <Route path="/" element={<HomePage />} />
-                <Route path="/new-bill" element={<ComingSoonPage title="New Bill" />} />
+                <Route path="/new-bill" element={<NewBillPage />} />
+                <Route path="/new-bill/:id" element={<NewBillPage />} />
                 <Route path="/bills" element={<ComingSoonPage title="Bills" />} />
                 <Route path="/products" element={<ProductsPage />} />
                 <Route path="/customers" element={<CustomersPage />} />
                 <Route path="/customers/:id" element={<CustomerDetailPage />} />
                 <Route path="/more" element={<MorePage />} />
+                <Route path="/more/drafts" element={<DraftsPage />} />
               </Route>
             </Route>
           </Routes>
