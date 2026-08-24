@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import { create, list, getOne, update, finalize, updatePaymentStatus } from '../controllers/invoice.controller.js';
+import { downloadInvoicePdf } from '../controllers/pdf.controller.js';
 import { handleValidation } from '../middleware/validate.middleware.js';
 import { requireAuth } from '../middleware/auth.middleware.js';
 
@@ -43,6 +44,8 @@ router.post(
 );
 
 router.get('/:id', param('id').isMongoId(), handleValidation, getOne);
+
+router.get('/:id/pdf', param('id').isMongoId(), handleValidation, downloadInvoicePdf);
 
 router.patch(
   '/:id',

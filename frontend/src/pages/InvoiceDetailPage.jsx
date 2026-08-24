@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useInvoiceQuery, useMarkPaidMutation } from '../hooks/useInvoices';
+import { InvoiceActions } from '../components/InvoiceActions';
 
 const STATUS_STYLES = {
   paid: 'bg-green-100 text-green-700',
@@ -47,6 +48,12 @@ export function InvoiceDetailPage() {
       <Link to="/bills" className="text-sm text-blue-700">
         ← Back to Bills
       </Link>
+
+      {invoice.status === 'cancelled' && (
+        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-center text-sm font-semibold uppercase tracking-wide text-red-700">
+          Cancelled
+        </div>
+      )}
 
       <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-4">
         <div className="flex items-start justify-between">
@@ -141,6 +148,8 @@ export function InvoiceDetailPage() {
           </>
         )}
       </div>
+
+      {invoice.status !== 'draft' && <InvoiceActions invoice={invoice} />}
     </div>
   );
 }

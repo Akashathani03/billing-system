@@ -1,4 +1,4 @@
-import { apiFetch } from './client';
+import { apiFetch, apiFetchBlob } from './client';
 
 export function fetchInvoices({
   status,
@@ -46,4 +46,8 @@ export function markInvoicePaid(id) {
 export function fetchCustomerInvoices(customerId, { page = 1, limit = 5 } = {}) {
   const params = new URLSearchParams({ page, limit });
   return apiFetch(`/customers/${customerId}/invoices?${params.toString()}`);
+}
+
+export function fetchInvoicePdfBlob(id) {
+  return apiFetchBlob(`/invoices/${id}/pdf`);
 }
