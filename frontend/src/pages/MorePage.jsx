@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 export function MorePage() {
@@ -25,7 +26,9 @@ export function MorePage() {
       </div>
 
       <div className="mt-4 divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white">
-        <div className="px-4 py-3 text-neutral-400">Customers — coming soon</div>
+        <Link to="/customers" className="block px-4 py-3 text-neutral-900 active:bg-neutral-50">
+          Customers
+        </Link>
         <div className="px-4 py-3 text-neutral-400">Drafts — coming soon</div>
       </div>
 
