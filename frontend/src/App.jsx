@@ -1,43 +1,36 @@
-import { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './routes/ProtectedRoute';
+import { AppShell } from './layouts/AppShell';
+import { LoginPage } from './pages/LoginPage';
+import { HomePage } from './pages/HomePage';
+import { MorePage } from './pages/MorePage';
+import { ComingSoonPage } from './pages/ComingSoonPage';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const queryClient = new QueryClient();
 
 function App() {
-  const [health, setHealth] = useState({ state: 'loading' });
-
-  useEffect(() => {
-    fetch(`${API_BASE_URL}/health`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data) => setHealth({ state: 'ok', data }))
-      .catch((err) => setHealth({ state: 'error', message: err.message }));
-  }, []);
-
   return (
-    <div className="min-h-svh bg-neutral-50 flex flex-col items-center justify-center px-6 text-center">
-      <h1 className="text-2xl font-semibold text-neutral-900">Mahaveer Billing</h1>
-      <p className="mt-1 text-sm text-neutral-500">Phase 0 baseline — no business features yet</p>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
 
-      <div className="mt-6 w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-4 text-left text-sm">
-        {health.state === 'loading' && (
-          <p className="text-neutral-500">Checking backend…</p>
-        )}
-        {health.state === 'ok' && (
-          <>
-            <p className="font-medium text-green-700">Backend: {health.data.status}</p>
-            <p className="mt-1 text-neutral-500">db: {health.data.db}</p>
-            <p className="mt-1 text-neutral-400">{health.data.time}</p>
-          </>
-        )}
-        {health.state === 'error' && (
-          <p className="font-medium text-red-700">
-            Backend unreachable — {health.message}
-          </p>
-        )}
-      </div>
-    </div>
+            <Route element={<ProtectedRoute />}>
+              <Route element={<AppShell />}>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/new-bill" element={<ComingSoonPage title="New Bill" />} />
+                <Route path="/bills" element={<ComingSoonPage title="Bills" />} />
+                <Route path="/products" element={<ComingSoonPage title="Products" />} />
+                <Route path="/more" element={<MorePage />} />
+              </Route>
+            </Route>
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
 
