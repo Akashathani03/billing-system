@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useCustomerQuery, useUpdateCustomerMutation } from '../hooks/useCustomers';
 import { useCustomerInvoicesQuery } from '../hooks/useInvoices';
 import { BottomSheet } from '../components/BottomSheet';
 import { CustomerForm } from '../components/CustomerForm';
-import { InvoiceCard } from '../components/InvoiceCard';
+import { BillListCard } from '../components/BillListCard';
+import { PageHeader } from '../components/PageHeader';
 
 export function CustomerDetailPage() {
   const { id } = useParams();
@@ -20,9 +21,7 @@ export function CustomerDetailPage() {
 
   return (
     <div className="px-4 pt-6 pb-4">
-      <Link to="/more" className="text-sm text-blue-700">
-        ← Back
-      </Link>
+      <PageHeader title="Customer" />
 
       {isLoading && <p className="py-8 text-center text-sm text-neutral-500">Loading…</p>}
 
@@ -38,7 +37,7 @@ export function CustomerDetailPage() {
       {data && (
         <>
           <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-4">
-            <h1 className="text-xl font-semibold text-neutral-900">{data.customer.name}</h1>
+            <p className="text-xl font-semibold text-neutral-900">{data.customer.name}</p>
             <p className="mt-1 text-neutral-600">{data.customer.mobile}</p>
             {data.customer.address && <p className="mt-1 text-sm text-neutral-500">{data.customer.address}</p>}
 
@@ -76,7 +75,7 @@ export function CustomerDetailPage() {
                 <p className="py-4 text-center text-sm text-neutral-500">No bills yet for this customer.</p>
               )}
               {invoiceHistory.data?.invoices.map((invoice) => (
-                <InvoiceCard key={invoice._id} invoice={invoice} />
+                <BillListCard key={invoice._id} invoice={invoice} />
               ))}
             </div>
           </div>

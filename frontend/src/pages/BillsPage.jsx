@@ -4,7 +4,8 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { groupByDate } from '../utils/dateGroups';
 import { SearchInput } from '../components/SearchInput';
 import { BillingFilterSheet } from '../components/BillingFilterSheet';
-import { InvoiceCard } from '../components/InvoiceCard';
+import { BillListCard } from '../components/BillListCard';
+import { PageHeader } from '../components/PageHeader';
 
 const EMPTY_FILTERS = { paymentMethod: '', dateFrom: '', dateTo: '' };
 
@@ -80,7 +81,7 @@ export function BillsPage() {
 
   return (
     <div className="px-4 pt-6 pb-6">
-      <h1 className="text-xl font-semibold text-neutral-900">Bills</h1>
+      <PageHeader title="Bills" />
 
       <div className="mt-4 flex gap-2">
         <div className="flex-1">
@@ -124,7 +125,7 @@ export function BillsPage() {
             <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">{group.label}</h2>
             <div className="space-y-2">
               {group.invoices.map((invoice) => (
-                <InvoiceCard
+                <BillListCard
                   key={invoice._id}
                   invoice={invoice}
                   onMarkPaid={handleMarkPaid}

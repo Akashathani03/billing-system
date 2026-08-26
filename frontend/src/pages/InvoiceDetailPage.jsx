@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useInvoiceQuery, useMarkPaidMutation } from '../hooks/useInvoices';
 import { InvoiceActions } from '../components/InvoiceActions';
+import { PageHeader } from '../components/PageHeader';
 
 const STATUS_STYLES = {
   paid: 'bg-green-100 text-green-700',
@@ -25,13 +26,19 @@ export function InvoiceDetailPage() {
   }
 
   if (isLoading) {
-    return <p className="px-4 py-8 text-center text-sm text-neutral-500">Loading…</p>;
+    return (
+      <div className="px-4 pt-6">
+        <PageHeader title="Invoice" />
+        <p className="py-8 text-center text-sm text-neutral-500">Loading…</p>
+      </div>
+    );
   }
 
   if (isError) {
     return (
       <div className="px-4 pt-6">
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <PageHeader title="Invoice" />
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <p>Couldn't load this invoice — {error.message}</p>
           <button onClick={() => refetch()} className="mt-2 font-medium underline">
             Retry
@@ -45,9 +52,7 @@ export function InvoiceDetailPage() {
 
   return (
     <div className="px-4 pt-6 pb-8">
-      <Link to="/bills" className="text-sm text-blue-700">
-        ← Back to Bills
-      </Link>
+      <PageHeader title="Invoice" />
 
       {invoice.status === 'cancelled' && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-center text-sm font-semibold uppercase tracking-wide text-red-700">
@@ -74,12 +79,28 @@ export function InvoiceDetailPage() {
           </span>
         </div>
 
-        <div className="mt-4 border-t border-neutral-200 pt-4">
-          <p className="text-sm text-neutral-500">Customer</p>
-          <p className="font-medium text-neutral-900">{invoice.customer.name}</p>
-          <p className="text-sm text-neutral-600">{invoice.customer.mobile}</p>
-          {invoice.customer.address && <p className="text-sm text-neutral-500">{invoice.customer.address}</p>}
-        </div>
+        <Link
+          to={`/customers/${invoice.customer.customerId}`}
+          className="mt-4 flex items-center justify-between border-t border-neutral-200 pt-4 active:opacity-70"
+        >
+          <div>
+            <p className="text-sm text-neutral-500">Customer</p>
+            <p className="font-medium text-neutral-900">{invoice.customer.name}</p>
+            <p className="text-sm text-neutral-600">{invoice.customer.mobile}</p>
+            {invoice.customer.address && <p className="text-sm text-neutral-500">{invoice.customer.address}</p>}
+          </div>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-4 w-4 shrink-0 text-neutral-400"
+          >
+            <path d="m9 6 6 6-6 6" />
+          </svg>
+        </Link>
       </div>
 
       <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-4">

@@ -1,7 +1,7 @@
 import { useAuth } from '../hooks/useAuth';
 import { useDashboardSummaryQuery } from '../hooks/useDashboard';
 import { DashboardSkeleton } from '../components/DashboardSkeleton';
-import { InvoiceCard } from '../components/InvoiceCard';
+import { BillListCard } from '../components/BillListCard';
 import { SalesTrendChart } from '../components/SalesTrendChart';
 
 const METHOD_LABELS = { cash: 'Cash', upi: 'UPI', card: 'Card', credit: 'Credit' };
@@ -19,9 +19,7 @@ export function HomePage() {
 
   return (
     <div className="px-4 pt-6 pb-4">
-      <h1 className="text-xl font-semibold text-neutral-900">
-        {greeting()} 👋
-      </h1>
+      <h1 className="text-xl font-semibold text-neutral-900">{greeting()} 👋</h1>
       <p className="mt-1 text-sm text-neutral-500">{user?.name}</p>
 
       {isLoading && <DashboardSkeleton />}
@@ -84,7 +82,7 @@ export function HomePage() {
                 <p className="py-4 text-center text-sm text-neutral-500">No bills yet.</p>
               )}
               {data.recentBills.map((invoice) => (
-                <InvoiceCard key={invoice._id} invoice={invoice} />
+                <BillListCard key={invoice._id} invoice={invoice} />
               ))}
             </div>
           </section>

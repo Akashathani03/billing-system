@@ -4,6 +4,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { SearchInput } from '../components/SearchInput';
 import { BottomSheet } from '../components/BottomSheet';
 import { ProductForm } from '../components/ProductForm';
+import { PageHeader } from '../components/PageHeader';
 
 function EditProductSheet({ product, onClose }) {
   const updateProduct = useUpdateProductMutation(product._id);
@@ -53,7 +54,7 @@ export function ProductsPage() {
 
   return (
     <div className="px-4 pt-6 pb-4">
-      <h1 className="text-xl font-semibold text-neutral-900">Products</h1>
+      <PageHeader title="Products" />
 
       <div className="mt-4">
         <SearchInput value={search} onChange={setSearch} placeholder="Search products" />
@@ -101,7 +102,7 @@ export function ProductsPage() {
 
       <button
         onClick={() => setAddOpen(true)}
-        className="fixed bottom-24 right-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-700 text-white shadow-lg shadow-blue-700/30"
+        className="fixed bottom-28 right-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-700 text-white shadow-lg shadow-blue-700/30"
         aria-label="Add product"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" className="h-7 w-7">

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDraftsQuery, useDeleteDraftMutation } from '../hooks/useInvoices';
 import { formatRelativeTime } from '../utils/relativeTime';
+import { PageHeader } from '../components/PageHeader';
 
 export function DraftsPage() {
   const { data, isLoading, isError, error, refetch } = useDraftsQuery();
@@ -20,10 +21,7 @@ export function DraftsPage() {
 
   return (
     <div className="px-4 pt-6 pb-4">
-      <Link to="/more" className="text-sm text-blue-700">
-        ← Back
-      </Link>
-      <h1 className="mt-2 text-xl font-semibold text-neutral-900">Drafts</h1>
+      <PageHeader title="Drafts" />
 
       <Link
         to="/new-bill"

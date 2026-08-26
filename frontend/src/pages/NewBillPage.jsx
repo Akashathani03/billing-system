@@ -11,6 +11,7 @@ import { CustomerPicker } from '../components/CustomerPicker';
 import { ProductPicker } from '../components/ProductPicker';
 import { ItemCard } from '../components/ItemCard';
 import { PaymentMethodSelect, PaymentStatusSelect } from '../components/PaymentSelectors';
+import { PageHeader } from '../components/PageHeader';
 
 function InvoiceGeneratedScreen({ invoice, onNewBill }) {
   return (
@@ -172,8 +173,8 @@ function NewBillForm({ initialInvoice }) {
   const preview = calcPreviewTotals(items);
 
   return (
-    <div className="px-4 pt-6 pb-40">
-      <h1 className="text-xl font-semibold text-neutral-900">New Bill</h1>
+    <div className="px-4 pt-6 pb-44">
+      <PageHeader title="New Bill" />
 
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
@@ -258,7 +259,7 @@ function NewBillForm({ initialInvoice }) {
         </div>
       </section>
 
-      <div className="fixed inset-x-0 bottom-16 z-10 flex gap-3 border-t border-neutral-200 bg-white px-4 py-3">
+      <div className="fixed inset-x-0 bottom-24 z-10 flex gap-3 border-t border-neutral-200 bg-white px-4 py-3">
         <button
           onClick={handleSaveDraft}
           disabled={saving || finalizing}

@@ -5,6 +5,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { SearchInput } from '../components/SearchInput';
 import { BottomSheet } from '../components/BottomSheet';
 import { CustomerForm } from '../components/CustomerForm';
+import { PageHeader } from '../components/PageHeader';
 
 export function CustomersPage() {
   const [search, setSearch] = useState('');
@@ -20,7 +21,7 @@ export function CustomersPage() {
 
   return (
     <div className="px-4 pt-6 pb-4">
-      <h1 className="text-xl font-semibold text-neutral-900">Customers</h1>
+      <PageHeader title="Customers" />
 
       <div className="mt-4">
         <SearchInput value={search} onChange={setSearch} placeholder="Search by name or mobile" />
@@ -58,7 +59,7 @@ export function CustomersPage() {
 
       <button
         onClick={() => setAddOpen(true)}
-        className="fixed bottom-24 right-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-700 text-white shadow-lg shadow-blue-700/30"
+        className="fixed bottom-28 right-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-700 text-white shadow-lg shadow-blue-700/30"
         aria-label="Add customer"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" className="h-7 w-7">

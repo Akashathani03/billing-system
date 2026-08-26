@@ -5,17 +5,25 @@ const STATUS_STYLES = {
   pending: 'bg-amber-100 text-amber-700',
 };
 
-export function InvoiceCard({ invoice, onMarkPaid, markingPaid }) {
+function formatDate(dateString) {
+  return new Date(dateString).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/**
+ * The shared bill-card used everywhere a list of invoices is shown (Home,
+ * Bills, Customer Detail): customer name + amount up top, payment
+ * method/status on their own row, date on a third row — no invoice number,
+ * which stays visible on Invoice Detail, the PDF, and in the backend.
+ */
+export function BillListCard({ invoice, onMarkPaid, markingPaid }) {
   return (
     <div className="rounded-lg border border-neutral-200 bg-white p-4">
       <Link to={`/invoices/${invoice._id}`} className="block">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate font-medium text-neutral-900">{invoice.invoiceNumber}</p>
-            <p className="truncate text-sm text-neutral-500">{invoice.customer.name}</p>
-          </div>
-          <p className="shrink-0 text-lg font-semibold text-neutral-900">₹{invoice.total.toFixed(2)}</p>
+          <p className="min-w-0 truncate text-lg font-semibold text-neutral-900">{invoice.customer.name}</p>
+          <p className="shrink-0 text-xl font-bold text-neutral-900">₹{invoice.total.toFixed(2)}</p>
         </div>
+
         <div className="mt-2 flex items-center gap-2">
           <span className="text-xs font-medium uppercase text-neutral-500">{invoice.paymentMethod}</span>
           <span
@@ -24,6 +32,8 @@ export function InvoiceCard({ invoice, onMarkPaid, markingPaid }) {
             {invoice.paymentStatus}
           </span>
         </div>
+
+        <p className="mt-1 text-xs text-neutral-500">{formatDate(invoice.finalizedAt)}</p>
       </Link>
 
       {invoice.paymentStatus === 'pending' && onMarkPaid && (
