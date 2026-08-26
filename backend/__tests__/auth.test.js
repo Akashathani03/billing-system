@@ -128,6 +128,47 @@ describe('POST /api/auth/logout', () => {
   });
 });
 
+describe('production cookie topology', () => {
+  test('login -> refresh (persisted cookie) -> authenticated request -> logout -> login again', async () => {
+    await createOwner('owner', 'secret123');
+    const agent = request.agent(app);
+
+    const firstLogin = await agent.post('/api/auth/login').send({ username: 'owner', password: 'secret123' });
+    expect(firstLogin.status).toBe(200);
+
+    // A page refresh doesn't re-send credentials — it's the browser
+    // re-attaching the already-set cookie on a fresh request, which is
+    // exactly what reusing the same agent's cookie jar simulates here.
+    const afterRefresh = await agent.get('/api/auth/me');
+    expect(afterRefresh.status).toBe(200);
+    expect(afterRefresh.body.user.username).toBe('owner');
+
+    const loggedOut = await agent.post('/api/auth/logout');
+    expect(loggedOut.status).toBe(200);
+    expect(await agent.get('/api/auth/me')).toHaveProperty('status', 401);
+
+    const secondLogin = await agent.post('/api/auth/login').send({ username: 'owner', password: 'secret123' });
+    expect(secondLogin.status).toBe(200);
+    expect(await agent.get('/api/auth/me')).toHaveProperty('status', 200);
+  });
+
+  test('sets Secure + SameSite=Strict on the cookie when NODE_ENV=production', async () => {
+    await createOwner('owner', 'secret123');
+    const previousEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+
+    try {
+      const res = await request(app).post('/api/auth/login').send({ username: 'owner', password: 'secret123' });
+      const cookie = res.headers['set-cookie'][0];
+      expect(cookie).toMatch(/Secure/i);
+      expect(cookie).toMatch(/SameSite=Strict/i);
+      expect(cookie).toMatch(/HttpOnly/i);
+    } finally {
+      process.env.NODE_ENV = previousEnv;
+    }
+  });
+});
+
 describe('seedOwnerUser', () => {
   test('creates the owner on first run and does not overwrite it on a second run', async () => {
     process.env.SEED_OWNER_USERNAME = 'owner';
