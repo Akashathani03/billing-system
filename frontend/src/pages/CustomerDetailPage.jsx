@@ -2,10 +2,46 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useCustomerQuery, useUpdateCustomerMutation } from '../hooks/useCustomers';
 import { useCustomerInvoicesQuery } from '../hooks/useInvoices';
+import {
+  useManualBillPhotosQuery,
+  useUploadManualBillPhotoMutation,
+  useDeleteManualBillPhotoMutation,
+} from '../hooks/useManualBillPhotos';
 import { BottomSheet } from '../components/BottomSheet';
 import { CustomerForm } from '../components/CustomerForm';
 import { BillListCard } from '../components/BillListCard';
 import { PageHeader } from '../components/PageHeader';
+import { AddBillPhotoForm } from '../components/AddBillPhotoForm';
+import { ManualBillPhotoCard } from '../components/ManualBillPhotoCard';
+import { ImageViewer } from '../components/ImageViewer';
+
+const BILL_TABS = [
+  { value: 'recent', label: 'Recent Bills' },
+  { value: 'manual', label: 'Manual Bills' },
+];
+
+function BillTabToggle({ value, onChange }) {
+  return (
+    <div className="mt-4 grid grid-cols-2 gap-2" role="tablist" aria-label="Bill history">
+      {BILL_TABS.map((tab) => (
+        <button
+          key={tab.value}
+          type="button"
+          role="tab"
+          aria-selected={value === tab.value}
+          onClick={() => onChange(tab.value)}
+          className={`rounded-lg border py-2 text-sm font-semibold transition-colors ${
+            value === tab.value
+              ? 'border-blue-700 bg-blue-700 text-white'
+              : 'border-neutral-300 bg-white text-neutral-700'
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function CustomerDetailPage() {
   const { id } = useParams();
@@ -13,10 +49,26 @@ export function CustomerDetailPage() {
   const invoiceHistory = useCustomerInvoicesQuery(id);
   const updateCustomer = useUpdateCustomerMutation(id);
   const [editOpen, setEditOpen] = useState(false);
+  const [billTab, setBillTab] = useState('recent');
+
+  const manualBills = useManualBillPhotosQuery(id);
+  const uploadPhoto = useUploadManualBillPhotoMutation(id);
+  const deletePhoto = useDeleteManualBillPhotoMutation(id);
+  const [addPhotoOpen, setAddPhotoOpen] = useState(false);
+  const [viewerPhoto, setViewerPhoto] = useState(null);
 
   async function handleUpdate(values) {
     await updateCustomer.mutateAsync(values);
     setEditOpen(false);
+  }
+
+  async function handleSavePhoto(file) {
+    await uploadPhoto.mutateAsync(file);
+    setAddPhotoOpen(false);
+  }
+
+  async function handleDeletePhoto(photoId) {
+    await deletePhoto.mutateAsync(photoId);
   }
 
   return (
@@ -62,9 +114,10 @@ export function CustomerDetailPage() {
             </div>
           </div>
 
-          <div className="mt-4">
-            <h2 className="text-sm font-semibold text-neutral-700">Recent Bills</h2>
-            <div className="mt-2 space-y-2">
+          <BillTabToggle value={billTab} onChange={setBillTab} />
+
+          {billTab === 'recent' && (
+            <div className="mt-3 space-y-2">
               {invoiceHistory.isLoading && (
                 <p className="py-4 text-center text-sm text-neutral-500">Loading…</p>
               )}
@@ -78,7 +131,29 @@ export function CustomerDetailPage() {
                 <BillListCard key={invoice._id} invoice={invoice} />
               ))}
             </div>
-          </div>
+          )}
+
+          {billTab === 'manual' && (
+            <div className="mt-3">
+              <div className="flex justify-end">
+                <button onClick={() => setAddPhotoOpen(true)} className="text-sm font-semibold text-blue-700">
+                  + Add Bill Photo
+                </button>
+              </div>
+              <div className="mt-2 space-y-2">
+                {manualBills.isLoading && <p className="py-4 text-center text-sm text-neutral-500">Loading…</p>}
+                {manualBills.isError && (
+                  <p className="py-4 text-center text-sm text-red-700">Unable to load bill photos.</p>
+                )}
+                {manualBills.data?.photos.length === 0 && (
+                  <p className="py-4 text-center text-sm text-neutral-500">No manual bill photos yet.</p>
+                )}
+                {manualBills.data?.photos.map((photo) => (
+                  <ManualBillPhotoCard key={photo._id} photo={photo} onOpen={() => setViewerPhoto(photo)} />
+                ))}
+              </div>
+            </div>
+          )}
 
           <BottomSheet open={editOpen} title="Edit Customer" onClose={() => setEditOpen(false)}>
             <CustomerForm
@@ -87,6 +162,21 @@ export function CustomerDetailPage() {
               submitting={updateCustomer.isPending}
             />
           </BottomSheet>
+
+          <BottomSheet open={addPhotoOpen} title="Add Bill Photo" onClose={() => setAddPhotoOpen(false)}>
+            <AddBillPhotoForm
+              onSave={handleSavePhoto}
+              saving={uploadPhoto.isPending}
+              onCancel={() => setAddPhotoOpen(false)}
+            />
+          </BottomSheet>
+
+          <ImageViewer
+            photo={viewerPhoto}
+            onClose={() => setViewerPhoto(null)}
+            onDelete={handleDeletePhoto}
+            deleting={deletePhoto.isPending}
+          />
         </>
       )}
     </div>
