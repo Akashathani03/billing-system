@@ -13,6 +13,16 @@ import manualBillPhotoRoutes from './routes/manualBillPhoto.routes.js';
 
 const app = express();
 
+// Production hosting (Render, Railway, etc.) puts this app behind exactly
+// one reverse-proxy hop, which sets X-Forwarded-For. Without telling
+// Express to trust it, req.ip resolves to the proxy's address for every
+// request — express-rate-limit (used on login) detects that mismatch and
+// throws rather than risk an attacker spoofing X-Forwarded-For to bypass
+// the limiter. This has no effect on cookie security: the Secure flag is
+// driven directly by NODE_ENV elsewhere, not by Express's proxy-derived
+// req.secure.
+app.set('trust proxy', 1);
+
 // This is a JSON-only API — it never renders HTML, so helmet's default
 // Content-Security-Policy (meant for HTML pages with scripts/styles) is
 // inert here and just adds noise; disabled for clarity rather than left on
