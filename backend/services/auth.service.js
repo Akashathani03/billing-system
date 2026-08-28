@@ -41,7 +41,7 @@ export function getAuthCookieOptions() {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
     path: '/',
     maxAge: parseDurationToMs(process.env.JWT_EXPIRES_IN),
   };
