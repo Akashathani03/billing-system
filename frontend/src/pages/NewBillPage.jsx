@@ -17,15 +17,34 @@ function InvoiceGeneratedScreen({ invoice, onNewBill }) {
   return (
     <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-700">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-8 w-8"
+        >
           <path d="M5 13l4 4L19 7" />
         </svg>
       </div>
-      <h1 className="mt-4 text-xl font-semibold text-neutral-900">Bill Generated</h1>
+
+      <h1 className="mt-4 text-xl font-semibold text-neutral-900">
+        Bill Generated
+      </h1>
+
       <p className="mt-1 text-sm text-neutral-500">Invoice</p>
-      <p className="text-lg font-semibold text-neutral-900">{invoice.invoiceNumber}</p>
+
+      <p className="text-lg font-semibold text-neutral-900">
+        {invoice.invoiceNumber}
+      </p>
+
       <p className="mt-3 text-sm text-neutral-500">Total</p>
-      <p className="text-2xl font-bold text-neutral-900">₹{invoice.total.toFixed(2)}</p>
+
+      <p className="text-2xl font-bold text-neutral-900">
+        ₹{invoice.total.toFixed(2)}
+      </p>
 
       <button
         onClick={onNewBill}
@@ -59,19 +78,30 @@ function itemsFromInvoice(invoice) {
 /**
  * The actual form. Mounted only once its initial data (a fresh bill, or an
  * existing draft already fetched by the parent) is available, and remounted
- * via `key` whenever the route's draft id changes. Because of that, every
- * piece of state can be initialized directly from `initialInvoice` with a
- * lazy useState initializer — no effect is needed to sync fetched data into
- * local state after the fact.
+ * via `key` whenever the route's draft id changes.
  */
 function NewBillForm({ initialInvoice }) {
   const navigate = useNavigate();
 
-  const [currentId, setCurrentId] = useState(() => initialInvoice?._id || null);
-  const [customer, setCustomer] = useState(() => (initialInvoice ? customerFromInvoice(initialInvoice) : null));
-  const [items, setItems] = useState(() => (initialInvoice ? itemsFromInvoice(initialInvoice) : []));
-  const [paymentMethod, setPaymentMethod] = useState(() => initialInvoice?.paymentMethod || 'cash');
-  const [paymentStatus, setPaymentStatus] = useState(() => initialInvoice?.paymentStatus || 'paid');
+  const [currentId, setCurrentId] = useState(
+    () => initialInvoice?._id || null,
+  );
+
+  const [customer, setCustomer] = useState(
+    () => (initialInvoice ? customerFromInvoice(initialInvoice) : null),
+  );
+
+  const [items, setItems] = useState(
+    () => (initialInvoice ? itemsFromInvoice(initialInvoice) : []),
+  );
+
+  const [paymentMethod, setPaymentMethod] = useState(
+    () => initialInvoice?.paymentMethod || 'cash',
+  );
+
+  const [paymentStatus, setPaymentStatus] = useState(
+    () => initialInvoice?.paymentStatus || 'paid',
+  );
 
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [productPickerOpen, setProductPickerOpen] = useState(false);
@@ -81,6 +111,7 @@ function NewBillForm({ initialInvoice }) {
   const createInvoice = useCreateInvoiceMutation();
   const updateInvoice = useUpdateInvoiceMutation();
   const finalizeInvoiceMutation = useFinalizeInvoiceMutation();
+
   const saving = createInvoice.isPending || updateInvoice.isPending;
   const finalizing = finalizeInvoiceMutation.isPending;
 
@@ -97,26 +128,54 @@ function NewBillForm({ initialInvoice }) {
 
   function handleSelectProduct(product) {
     setItems((prev) => {
-      const existingItem = prev.find((i) => i.productId === product._id);
+      const existingItem = prev.find(
+        (i) => i.productId === product._id,
+      );
+
       if (existingItem) {
-        return prev.map((i) => (i.productId === product._id ? { ...i, quantity: i.quantity + 1 } : i));
+        return prev.map((i) =>
+          i.productId === product._id
+            ? { ...i, quantity: i.quantity + 1 }
+            : i,
+        );
       }
-      return [...prev, { productId: product._id, name: product.name, price: product.price, unit: product.unit, quantity: 1 }];
+
+      return [
+        ...prev,
+        {
+          productId: product._id,
+          name: product.name,
+          price: product.price,
+          unit: product.unit,
+          quantity: 1,
+        },
+      ];
     });
   }
 
   function handleQuantityChange(productId, quantity) {
-    setItems((prev) => prev.map((i) => (i.productId === productId ? { ...i, quantity } : i)));
+    setItems((prev) =>
+      prev.map((i) =>
+        i.productId === productId
+          ? { ...i, quantity }
+          : i,
+      ),
+    );
   }
 
   function handleRemoveItem(productId) {
-    setItems((prev) => prev.filter((i) => i.productId !== productId));
+    setItems((prev) =>
+      prev.filter((i) => i.productId !== productId),
+    );
   }
 
   function buildPayload() {
     return {
       customerId: customer._id,
-      items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+      items: items.map((i) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+      })),
       paymentMethod,
       paymentStatus,
     };
@@ -124,21 +183,31 @@ function NewBillForm({ initialInvoice }) {
 
   async function ensureSaved() {
     const payload = buildPayload();
+
     if (currentId) {
-      const { invoice } = await updateInvoice.mutateAsync({ id: currentId, data: payload });
+      const { invoice } = await updateInvoice.mutateAsync({
+        id: currentId,
+        data: payload,
+      });
+
       return invoice;
     }
+
     const { invoice } = await createInvoice.mutateAsync(payload);
+
     setCurrentId(invoice._id);
+
     return invoice;
   }
 
   async function handleSaveDraft() {
     setError('');
+
     if (!customer) {
       setError('Please select a customer first');
       return;
     }
+
     try {
       await ensureSaved();
       navigate('/more/drafts');
@@ -149,17 +218,23 @@ function NewBillForm({ initialInvoice }) {
 
   async function handleGenerateInvoice() {
     setError('');
+
     if (!customer) {
       setError('Please select a customer first');
       return;
     }
+
     if (items.length === 0) {
       setError('Please add at least one product');
       return;
     }
+
     try {
       const saved = await ensureSaved();
-      const { invoice } = await finalizeInvoiceMutation.mutateAsync(saved._id);
+
+      const { invoice } =
+        await finalizeInvoiceMutation.mutateAsync(saved._id);
+
       setFinalizedInvoice(invoice);
     } catch (err) {
       setError(err.message);
@@ -167,7 +242,12 @@ function NewBillForm({ initialInvoice }) {
   }
 
   if (finalizedInvoice) {
-    return <InvoiceGeneratedScreen invoice={finalizedInvoice} onNewBill={resetForm} />;
+    return (
+      <InvoiceGeneratedScreen
+        invoice={finalizedInvoice}
+        onNewBill={resetForm}
+      />
+    );
   }
 
   const preview = calcPreviewTotals(items);
@@ -177,21 +257,34 @@ function NewBillForm({ initialInvoice }) {
       <PageHeader title="New Bill" />
 
       {error && (
-        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
       )}
 
       <section className="mt-4">
-        <h2 className="text-sm font-semibold text-neutral-700">Customer</h2>
+        <h2 className="text-sm font-semibold text-neutral-700">
+          Customer
+        </h2>
+
         {customer ? (
           <button
             onClick={() => setCustomerPickerOpen(true)}
             className="mt-2 flex w-full items-center justify-between rounded-lg border border-neutral-200 bg-white p-3 text-left"
           >
             <div>
-              <p className="font-medium text-neutral-900">{customer.name}</p>
-              <p className="text-sm text-neutral-500">{customer.mobile}</p>
+              <p className="font-medium text-neutral-900">
+                {customer.name}
+              </p>
+
+              <p className="text-sm text-neutral-500">
+                {customer.mobile}
+              </p>
             </div>
-            <span className="text-sm text-blue-700">Change</span>
+
+            <span className="text-sm text-blue-700">
+              Change
+            </span>
           </button>
         ) : (
           <button
@@ -205,8 +298,14 @@ function NewBillForm({ initialInvoice }) {
 
       <section className="mt-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-neutral-700">Items</h2>
-          <button onClick={() => setProductPickerOpen(true)} className="text-sm font-semibold text-blue-700">
+          <h2 className="text-sm font-semibold text-neutral-700">
+            Items
+          </h2>
+
+          <button
+            onClick={() => setProductPickerOpen(true)}
+            className="text-sm font-semibold text-blue-700"
+          >
             + Add Product
           </button>
         </div>
@@ -217,12 +316,17 @@ function NewBillForm({ initialInvoice }) {
               No items yet — tap "+ Add Product" to get started.
             </p>
           )}
+
           {items.map((item) => (
             <ItemCard
               key={item.productId}
               item={item}
-              onQuantityChange={(q) => handleQuantityChange(item.productId, q)}
-              onRemove={() => handleRemoveItem(item.productId)}
+              onQuantityChange={(q) =>
+                handleQuantityChange(item.productId, q)
+              }
+              onRemove={() =>
+                handleRemoveItem(item.productId)
+              }
             />
           ))}
         </div>
@@ -234,10 +338,14 @@ function NewBillForm({ initialInvoice }) {
             <span>Subtotal</span>
             <span>₹{preview.subtotal.toFixed(2)}</span>
           </div>
+
           <div className="mt-1 flex justify-between text-sm text-neutral-600">
-            <span>GST {(preview.taxRate * 100).toFixed(0)}%</span>
+            <span>
+              GST {(preview.taxRate * 100).toFixed(0)}%
+            </span>
             <span>₹{preview.taxAmount.toFixed(2)}</span>
           </div>
+
           <div className="mt-2 flex justify-between border-t border-neutral-200 pt-2 text-base font-semibold text-neutral-900">
             <span>Total</span>
             <span>₹{preview.total.toFixed(2)}</span>
@@ -246,16 +354,28 @@ function NewBillForm({ initialInvoice }) {
       )}
 
       <section className="mt-6">
-        <h2 className="text-sm font-semibold text-neutral-700">Payment Method</h2>
+        <h2 className="text-sm font-semibold text-neutral-700">
+          Payment Method
+        </h2>
+
         <div className="mt-2">
-          <PaymentMethodSelect value={paymentMethod} onChange={setPaymentMethod} />
+          <PaymentMethodSelect
+            value={paymentMethod}
+            onChange={setPaymentMethod}
+          />
         </div>
       </section>
 
       <section className="mt-4">
-        <h2 className="text-sm font-semibold text-neutral-700">Payment Status</h2>
+        <h2 className="text-sm font-semibold text-neutral-700">
+          Payment Status
+        </h2>
+
         <div className="mt-2">
-          <PaymentStatusSelect value={paymentStatus} onChange={setPaymentStatus} />
+          <PaymentStatusSelect
+            value={paymentStatus}
+            onChange={setPaymentStatus}
+          />
         </div>
       </section>
 
@@ -267,41 +387,66 @@ function NewBillForm({ initialInvoice }) {
         >
           Save Draft
         </button>
+
         <button
           onClick={handleGenerateInvoice}
           disabled={saving || finalizing}
           className="flex-1 rounded-md bg-blue-700 py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
-          {finalizing ? 'Generating…' : 'Generate Invoice'}
+          {finalizing ? 'Generating…' : 'Generate Bill'}
         </button>
       </div>
 
-      <CustomerPicker open={customerPickerOpen} onClose={() => setCustomerPickerOpen(false)} onSelect={setCustomer} />
-      <ProductPicker open={productPickerOpen} onClose={() => setProductPickerOpen(false)} onSelect={handleSelectProduct} />
+      <CustomerPicker
+        open={customerPickerOpen}
+        onClose={() => setCustomerPickerOpen(false)}
+        onSelect={setCustomer}
+      />
+
+      <ProductPicker
+        open={productPickerOpen}
+        onClose={() => setProductPickerOpen(false)}
+        onSelect={handleSelectProduct}
+      />
     </div>
   );
 }
 
 /**
  * Route-level wrapper: resolves which draft (if any) is being opened and
- * waits for it to load before ever mounting the form, so NewBillForm's
- * state can be initialized synchronously from real data instead of via an
- * effect-based sync.
+ * waits for it to load before ever mounting the form.
  */
 export function NewBillPage() {
   const { id: routeId } = useParams();
-  const { data, isLoading, isError, error, refetch } = useInvoiceQuery(routeId);
+
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useInvoiceQuery(routeId);
 
   if (routeId && isLoading) {
-    return <p className="px-4 py-8 text-center text-sm text-neutral-500">Loading…</p>;
+    return (
+      <p className="px-4 py-8 text-center text-sm text-neutral-500">
+        Loading…
+      </p>
+    );
   }
 
   if (routeId && isError) {
     return (
       <div className="px-4 pt-6">
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          <p>Couldn't load this draft — {error.message}</p>
-          <button onClick={() => refetch()} className="mt-2 font-medium underline">
+          <p>
+            Couldn't load this draft — {error.message}
+          </p>
+
+          <button
+            onClick={() => refetch()}
+            className="mt-2 font-medium underline"
+          >
             Retry
           </button>
         </div>
@@ -309,5 +454,10 @@ export function NewBillPage() {
     );
   }
 
-  return <NewBillForm key={routeId || 'new'} initialInvoice={data?.invoice} />;
+  return (
+    <NewBillForm
+      key={routeId || 'new'}
+      initialInvoice={data?.invoice}
+    />
+  );
 }
