@@ -64,7 +64,7 @@ export function DraftsPage() {
           >
             <Link
               to={`/new-bill/${invoice._id}`}
-              className="block pr-12"
+              className="block pr-10"
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="truncate font-medium text-neutral-900">
@@ -76,7 +76,7 @@ export function DraftsPage() {
                 </p>
               </div>
 
-              <p className="mt-1 text-sm text-neutral-500">
+              <p className="mt-1 text-xs text-neutral-400">
                 Saved {formatRelativeTime(invoice.updatedAt)}
               </p>
             </Link>
@@ -85,7 +85,7 @@ export function DraftsPage() {
               onClick={() => handleDelete(invoice._id)}
               disabled={deletingId === invoice._id}
               aria-label="Delete draft"
-              className="absolute right-4 top-4 rounded-full p-2 text-red-500 disabled:opacity-40"
+              className="absolute right-2 top-2 rounded-full p-1 text-red-500 disabled:opacity-40"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -93,7 +93,7 @@ export function DraftsPage() {
                 stroke="currentColor"
                 strokeWidth={2}
                 strokeLinecap="round"
-                className="h-6 w-6"
+                className="h-5 w-5"
               >
                 <path d="M6 6l12 12M18 6 6 18" />
               </svg>
