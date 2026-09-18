@@ -1,4 +1,4 @@
-import { toPaise, fromPaise, lineTotalPaise, taxAmountPaise } from '../utils/money.js';
+import { toPaise, fromPaise, lineTotalPaise } from '../utils/money.js';
 
 describe('money utilities (rounding strategy)', () => {
   test('round-trips rupees to paise and back without drift', () => {
@@ -9,11 +9,6 @@ describe('money utilities (rounding strategy)', () => {
   test('computes exact line totals for decimal prices and quantities', () => {
     expect(fromPaise(lineTotalPaise(19.99, 3))).toBe(59.97);
     expect(fromPaise(lineTotalPaise(150, 2.5))).toBe(375);
-  });
-
-  test('computes tax with a single controlled rounding step', () => {
-    const subtotalPaise = 5997; // 59.97
-    expect(fromPaise(taxAmountPaise(subtotalPaise, 0.18))).toBe(10.79);
   });
 
   test('sums many decimal line items without accumulating floating-point drift', () => {

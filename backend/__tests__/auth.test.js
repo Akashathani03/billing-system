@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import app from '../app.js';
 import User from '../models/User.js';
+import Shop from '../models/Shop.js';
 import { hashPassword, verifyPassword } from '../services/auth.service.js';
 import { seedOwnerUser } from '../utils/seedAdmin.js';
 
@@ -29,7 +30,8 @@ afterEach(async () => {
 
 async function createOwner(username = 'owner', password = 'secret123') {
   const passwordHash = await hashPassword(password);
-  return User.create({ username, passwordHash, name: 'Owner', role: 'owner' });
+  const shop = await Shop.create({ name: `${username}'s shop` });
+  return User.create({ username, passwordHash, name: 'Owner', role: 'owner', shopId: shop._id });
 }
 
 describe('POST /api/auth/login', () => {
@@ -72,7 +74,8 @@ describe('POST /api/auth/login', () => {
 
   test('rejects a deactivated user even with the correct password', async () => {
     const passwordHash = await hashPassword('secret123');
-    await User.create({ username: 'owner', passwordHash, name: 'Owner', role: 'owner', isActive: false });
+    const shop = await Shop.create({ name: 'deactivated-owner shop' });
+    await User.create({ username: 'owner', passwordHash, name: 'Owner', role: 'owner', isActive: false, shopId: shop._id });
 
     const res = await request(app)
       .post('/api/auth/login')
@@ -173,9 +176,11 @@ describe('seedOwnerUser', () => {
   test('creates the owner on first run and does not overwrite it on a second run', async () => {
     process.env.SEED_OWNER_USERNAME = 'owner';
     process.env.SEED_OWNER_PASSWORD = 'first-password';
+    process.env.SEED_SHOP_NAME = 'Test Shop';
 
     const created = await seedOwnerUser();
     expect(created.username).toBe('owner');
+    expect(created.shopId).toBeTruthy();
 
     process.env.SEED_OWNER_PASSWORD = 'second-password';
     await seedOwnerUser();

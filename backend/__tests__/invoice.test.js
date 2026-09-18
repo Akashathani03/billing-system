@@ -49,11 +49,17 @@ afterEach(async () => {
 });
 
 async function makeCustomer(overrides = {}) {
-  return Customer.create({ name: 'Ramesh Kumar', mobile: '9876543210', address: 'Athani Road', ...overrides });
+  return Customer.create({
+    shopId: agent.shopId,
+    name: 'Ramesh Kumar',
+    mobile: '9876543210',
+    address: 'Athani Road',
+    ...overrides,
+  });
 }
 
 async function makeProduct(overrides = {}) {
-  return Product.create({ name: 'LED Bulb 9W', price: 150, unit: 'pcs', ...overrides });
+  return Product.create({ shopId: agent.shopId, name: 'LED Bulb 9W', price: 150, unit: 'pcs', ...overrides });
 }
 
 async function createDraft({ customer, items, paymentMethod, paymentStatus } = {}) {
@@ -127,16 +133,14 @@ describe('finalization and money calculation', () => {
     expect(res.body.invoice.invoiceNumber).toMatch(/^INV-\d{4}-\d{4}$/);
   });
 
-  test('E/F/G: backend computes subtotal, tax, and total correctly', async () => {
+  test('E/F/G: backend computes subtotal and total correctly', async () => {
     const product = await makeProduct({ price: 150 });
     const created = await createDraft({ items: [{ productId: product._id.toString(), quantity: 3 }] });
     const res = await agent.post(`/api/invoices/${created.body.invoice._id}/finalize`);
 
     expect(res.body.invoice.subtotal).toBe(450);
-    expect(res.body.invoice.taxRate).toBe(0.18);
-    expect(res.body.invoice.taxAmount).toBe(81);
-    expect(res.body.invoice.total).toBe(531);
-    expect(res.body.invoice.amountInWords).toBe('Five Hundred Thirty One Rupees');
+    expect(res.body.invoice.total).toBe(450);
+    expect(res.body.invoice.amountInWords).toBe('Four Hundred Fifty Rupees');
   });
 
   test('H: backend ignores manipulated client-supplied totals', async () => {
@@ -147,7 +151,6 @@ describe('finalization and money calculation', () => {
       customerId: customer._id.toString(),
       items: [{ productId: product._id.toString(), quantity: 2 }],
       subtotal: 1,
-      taxAmount: 1,
       total: 1,
       invoiceNumber: 'INV-2026-9999',
       amountInWords: 'One Rupee',
@@ -155,12 +158,12 @@ describe('finalization and money calculation', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.invoice.subtotal).toBe(300);
-    expect(res.body.invoice.total).toBe(354);
+    expect(res.body.invoice.total).toBe(300);
     expect(res.body.invoice.invoiceNumber).toBeFalsy();
 
     const finalized = await agent.post(`/api/invoices/${res.body.invoice._id}/finalize`);
     expect(finalized.body.invoice.subtotal).toBe(300);
-    expect(finalized.body.invoice.total).toBe(354);
+    expect(finalized.body.invoice.total).toBe(300);
     expect(finalized.body.invoice.invoiceNumber).not.toBe('INV-2026-9999');
   });
 

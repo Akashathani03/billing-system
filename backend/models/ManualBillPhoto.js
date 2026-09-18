@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 const manualBillPhotoSchema = new mongoose.Schema(
   {
+    shopId: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop', required: true, index: true },
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true, index: true },
     storageKey: { type: String, required: true },
     mimeType: { type: String, required: true },

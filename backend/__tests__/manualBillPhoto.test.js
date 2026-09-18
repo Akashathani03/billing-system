@@ -40,7 +40,7 @@ afterEach(async () => {
 });
 
 async function createCustomer() {
-  return Customer.create({ name: 'Ramesh Kumar', mobile: '9876543210' });
+  return Customer.create({ shopId: agent.shopId, name: 'Ramesh Kumar', mobile: '9876543210' });
 }
 
 describe('POST /api/manual-bills', () => {
@@ -151,7 +151,7 @@ describe('GET /api/manual-bills', () => {
 
   test('lists only photos belonging to the given customer, newest first', async () => {
     const customerA = await createCustomer();
-    const customerB = await Customer.create({ name: 'Suresh', mobile: '9988776655' });
+    const customerB = await Customer.create({ shopId: agent.shopId, name: 'Suresh', mobile: '9988776655' });
 
     await agent
       .post('/api/manual-bills')

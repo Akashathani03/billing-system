@@ -1,6 +1,5 @@
-import fs from 'fs';
 import PDFDocument from 'pdfkit';
-import { SHOP_CONFIG, BUSINESS_TIMEZONE } from '../config/businessConfig.js';
+import { BUSINESS_TIMEZONE } from '../config/businessConfig.js';
 
 const PAGE_LEFT = 50;
 const PAGE_RIGHT = 545;
@@ -28,42 +27,25 @@ function formatDate(date) {
   });
 }
 
-function drawHeader(doc) {
-  let logoDrawn = false;
-  if (SHOP_CONFIG.logoPath) {
-    try {
-      if (fs.existsSync(SHOP_CONFIG.logoPath)) {
-        doc.image(SHOP_CONFIG.logoPath, PAGE_LEFT, 45, { width: 55 });
-        logoDrawn = true;
-      }
-    } catch {
-      // Corrupt/unreadable logo file — fall back to a text-only header
-      // rather than failing PDF generation over a cosmetic asset.
-    }
-  }
-
-  const textLeft = logoDrawn ? PAGE_LEFT + 65 : PAGE_LEFT;
+function drawHeader(doc, shopConfig) {
+  const textLeft = PAGE_LEFT;
   const textWidth = PAGE_RIGHT - textLeft;
 
-  doc.fontSize(18).font('Helvetica-Bold').text(SHOP_CONFIG.name || 'Invoice', textLeft, 48, {
+  doc.fontSize(18).font('Helvetica-Bold').text(shopConfig.name || 'Invoice', textLeft, 48, {
     width: textWidth,
-    align: logoDrawn ? 'left' : 'center',
+    align: 'center',
   });
 
   doc.fontSize(9).font('Helvetica');
-  if (SHOP_CONFIG.address) {
-    doc.text(SHOP_CONFIG.address, textLeft, doc.y, { width: textWidth, align: logoDrawn ? 'left' : 'center' });
+  if (shopConfig.address) {
+    doc.text(shopConfig.address, textLeft, doc.y, { width: textWidth, align: 'center' });
   }
-  const contactLine = [SHOP_CONFIG.phone ? `Ph: ${SHOP_CONFIG.phone}` : null, SHOP_CONFIG.email]
+  const contactLine = [shopConfig.phone ? `Ph: ${shopConfig.phone}` : null, shopConfig.email]
     .filter(Boolean)
     .join('   |   ');
   if (contactLine) {
-    doc.text(contactLine, textLeft, doc.y, { width: textWidth, align: logoDrawn ? 'left' : 'center' });
+    doc.text(contactLine, textLeft, doc.y, { width: textWidth, align: 'center' });
   }
-  if (SHOP_CONFIG.gst) {
-    doc.text(`GSTIN: ${SHOP_CONFIG.gst}`, textLeft, doc.y, { width: textWidth, align: logoDrawn ? 'left' : 'center' });
-  }
-
   doc.y = Math.max(doc.y, 110);
   doc.moveDown(0.5);
   doc.moveTo(PAGE_LEFT, doc.y).lineTo(PAGE_RIGHT, doc.y).strokeColor('#cccccc').stroke();
@@ -77,7 +59,7 @@ function drawTitle(doc, invoice) {
     doc.fillColor('black');
     doc.moveDown(0.3);
   }
-  doc.fontSize(15).font('Helvetica-Bold').text('TAX INVOICE', { align: 'center' });
+  doc.fontSize(15).font('Helvetica-Bold').text('INVOICE', { align: 'center' });
   doc.moveDown(0.6);
 }
 
@@ -141,9 +123,6 @@ function drawTotals(doc, invoice) {
   doc.text('Subtotal', labelX, doc.y, { width: valueWidth - 75, align: 'left', continued: false });
   doc.text(formatMoney(invoice.subtotal), labelX, doc.y - doc.currentLineHeight(), { width: valueWidth, align: 'right' });
 
-  doc.text(`GST ${(invoice.taxRate * 100).toFixed(0)}%`, labelX, doc.y, { width: valueWidth - 75 });
-  doc.text(formatMoney(invoice.taxAmount), labelX, doc.y - doc.currentLineHeight(), { width: valueWidth, align: 'right' });
-
   doc.moveDown(0.2);
   doc.font('Helvetica-Bold').fontSize(12);
   doc.text('TOTAL', labelX, doc.y, { width: valueWidth - 75 });
@@ -164,12 +143,12 @@ function drawPayment(doc, invoice) {
   doc.moveDown(0.6);
 }
 
-function drawFooter(doc) {
+function drawFooter(doc, shopConfig) {
   doc.moveTo(PAGE_LEFT, doc.y).lineTo(PAGE_RIGHT, doc.y).strokeColor('#cccccc').stroke();
   doc.moveDown(0.5);
 
-  if (SHOP_CONFIG.invoiceTerms) {
-    doc.fontSize(8).font('Helvetica').fillColor('#555555').text(SHOP_CONFIG.invoiceTerms, PAGE_LEFT, doc.y, {
+  if (shopConfig.invoiceTerms) {
+    doc.fontSize(8).font('Helvetica').fillColor('#555555').text(shopConfig.invoiceTerms, PAGE_LEFT, doc.y, {
       width: PAGE_RIGHT - PAGE_LEFT,
     });
     doc.fillColor('black');
@@ -179,15 +158,15 @@ function drawFooter(doc) {
   doc.fontSize(10).font('Helvetica-Bold').text('Thank you for your business!', { align: 'center' });
 }
 
-function drawInvoice(doc, invoice) {
-  drawHeader(doc);
+function drawInvoice(doc, invoice, shopConfig) {
+  drawHeader(doc, shopConfig);
   drawTitle(doc, invoice);
   drawInvoiceAndCustomerInfo(doc, invoice);
   drawItems(doc, invoice);
   drawTotals(doc, invoice);
   drawAmountInWords(doc, invoice);
   drawPayment(doc, invoice);
-  drawFooter(doc);
+  drawFooter(doc, shopConfig);
 }
 
 /**
@@ -197,8 +176,13 @@ function drawInvoice(doc, invoice) {
  * generated PDF. Buffered in memory (single-page, small) rather than
  * streamed to disk — nothing is persisted, this is generated on demand and
  * discarded after the response.
+ *
+ * shopConfig is the invoice's OWN shop's identity (name/address/phone/
+ * email/invoiceTerms) — the caller is responsible for loading it via
+ * invoice.shopId, never via anything else, so one shop's PDF can never
+ * render another shop's business identity.
  */
-export function renderInvoicePdf(invoice) {
+export function renderInvoicePdf(invoice, shopConfig) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const chunks = [];
@@ -207,7 +191,7 @@ export function renderInvoicePdf(invoice) {
     doc.on('error', reject);
 
     try {
-      drawInvoice(doc, invoice);
+      drawInvoice(doc, invoice, shopConfig);
       doc.end();
     } catch (err) {
       reject(err);

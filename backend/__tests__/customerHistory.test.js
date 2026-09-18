@@ -46,9 +46,9 @@ async function billFor(customer, product, quantity) {
 
 describe('GET /api/customers/:id/invoices', () => {
   test('X: returns the customer finalized billing history', async () => {
-    const customer = await Customer.create({ name: 'Ramesh', mobile: '9876543210' });
-    const other = await Customer.create({ name: 'Suresh', mobile: '9988776655' });
-    const product = await Product.create({ name: 'LED Bulb', price: 100 });
+    const customer = await Customer.create({ shopId: agent.shopId, name: 'Ramesh', mobile: '9876543210' });
+    const other = await Customer.create({ shopId: agent.shopId, name: 'Suresh', mobile: '9988776655' });
+    const product = await Product.create({ shopId: agent.shopId, name: 'LED Bulb', price: 100 });
 
     await billFor(customer, product, 1);
     await billFor(other, product, 1);
@@ -60,20 +60,20 @@ describe('GET /api/customers/:id/invoices', () => {
   });
 
   test('Y: totals reflect finalized invoices', async () => {
-    const customer = await Customer.create({ name: 'Ramesh', mobile: '9876543210' });
-    const product = await Product.create({ name: 'LED Bulb', price: 100 });
+    const customer = await Customer.create({ shopId: agent.shopId, name: 'Ramesh', mobile: '9876543210' });
+    const product = await Product.create({ shopId: agent.shopId, name: 'LED Bulb', price: 100 });
 
-    await billFor(customer, product, 1); // 100 + 18% = 118
-    await billFor(customer, product, 2); // 200 + 18% = 236
+    await billFor(customer, product, 1); // 100
+    await billFor(customer, product, 2); // 200
 
     const res = await agent.get(`/api/customers/${customer._id}/invoices`);
     expect(res.body.totalBills).toBe(2);
-    expect(res.body.totalPurchaseValue).toBe(354);
+    expect(res.body.totalPurchaseValue).toBe(300);
   });
 
   test('Z: drafts are excluded from the customer\'s bill count and totals', async () => {
-    const customer = await Customer.create({ name: 'Ramesh', mobile: '9876543210' });
-    const product = await Product.create({ name: 'LED Bulb', price: 100 });
+    const customer = await Customer.create({ shopId: agent.shopId, name: 'Ramesh', mobile: '9876543210' });
+    const product = await Product.create({ shopId: agent.shopId, name: 'LED Bulb', price: 100 });
 
     await billFor(customer, product, 1); // one finalized bill
 
@@ -84,12 +84,12 @@ describe('GET /api/customers/:id/invoices', () => {
 
     const res = await agent.get(`/api/customers/${customer._id}/invoices`);
     expect(res.body.totalBills).toBe(1);
-    expect(res.body.totalPurchaseValue).toBe(118);
+    expect(res.body.totalPurchaseValue).toBe(100);
   });
 
   test('cancelled invoices are excluded from the customer history and totals', async () => {
-    const customer = await Customer.create({ name: 'Ramesh', mobile: '9876543210' });
-    const product = await Product.create({ name: 'LED Bulb', price: 100 });
+    const customer = await Customer.create({ shopId: agent.shopId, name: 'Ramesh', mobile: '9876543210' });
+    const product = await Product.create({ shopId: agent.shopId, name: 'LED Bulb', price: 100 });
 
     const finalized = await billFor(customer, product, 1);
     await Invoice.findByIdAndUpdate(finalized.body.invoice._id, { status: 'cancelled' });

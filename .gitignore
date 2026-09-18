@@ -10,6 +10,9 @@ node_modules/
 dist/
 build/
 
+# user-uploaded files
+backend/uploads/
+
 # logs
 npm-debug.log*
 *.log

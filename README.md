@@ -1,10 +1,18 @@
-# Mahaveer Electrical Shop Billing System
+# Billing System
 
-A mobile-first billing application for Mahaveer Electrical Shop. The project is organized as a React/Vite single-page frontend and a Node.js/Express API backed by MongoDB through Mongoose.
+A generic, multi-shop billing application: each shop (business) gets fully isolated
+customers, products, and invoices under its own account, so the same deployment can
+serve many independent businesses. Mahaveer Electrical Shop is the current example
+deployment, but nothing in the system is tied to that or any other specific business
+type. Built as a React/Vite single-page frontend and a Node.js/Express API backed by
+MongoDB through Mongoose.
 
 ## Features
 
 - Owner login using JWT sessions stored in an HTTP-only cookie
+- Multi-shop data isolation — every customer, product, and invoice belongs to exactly
+  one shop, enforced at the data layer, with each shop's own business identity
+  (name, address, phone, email, invoice terms)
 - Protected dashboard and application routes
 - Customer and product management
 - New bills, draft bills, invoice details, and monthly sales views
@@ -69,7 +77,39 @@ cd backend && npm install
 cd ../frontend && npm install
 ```
 
-Configure `backend/.env` with `MONGODB_URI`, `JWT_SECRET`, `CLIENT_ORIGIN`, and the shop/invoice settings documented in `backend/.env.example`. Configure `VITE_API_BASE_URL` in `frontend/.env` if the API is not running at `http://localhost:5000/api`. Never commit real environment files.
+## Configuration
+
+`backend/.env` variables:
+
+| Variable | Purpose |
+|---|---|
+| `PORT` | API port (default `5000`) |
+| `MONGODB_URI` | MongoDB connection string |
+| `JWT_SECRET` / `JWT_EXPIRES_IN` | session token signing |
+| `COOKIE_NAME` | name of the httpOnly auth cookie |
+| `CLIENT_ORIGIN` | frontend origin, for CORS (default `http://localhost:5173`) |
+| `SEED_OWNER_USERNAME` / `SEED_OWNER_PASSWORD` | used once by `npm run seed` to create the first login |
+| `SHOP_NAME`, `SHOP_ADDRESS`, `SHOP_PHONE`, `SHOP_EMAIL`, `INVOICE_TERMS` | shop identity, applied once when `npm run seed` / `npm run migrate:shops` creates a shop |
+
+`frontend/.env` variables:
+
+| Variable | Purpose |
+|---|---|
+| `VITE_API_BASE_URL` | base URL the SPA calls (default `http://localhost:5000/api`) |
+
+Never commit a real `.env` file — only `.env.example` is tracked. If you accidentally stage one, unstage it before committing.
+
+## MongoDB setup
+
+The app expects a reachable MongoDB instance at `MONGODB_URI`. For local development:
+
+- **Windows service**: confirm it's running with `Get-Service MongoDB` in PowerShell —
+  `Status` should read `Running`. The default URI `mongodb://127.0.0.1:27017/mahaveer_billing`
+  will work as-is; the database is created automatically on first write.
+- **WSL/manual**: start `mongod` yourself and point `MONGODB_URI` at it.
+
+No manual database creation is needed — Mongoose creates the database and collections
+on first use.
 
 ## Run locally
 

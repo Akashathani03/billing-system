@@ -47,8 +47,8 @@ describe('GET /api/invoices — billing history', () => {
   });
 
   test('B: excludes drafts', async () => {
-    const customer = await Customer.create({ name: 'X', mobile: '9000000000' });
-    const product = await Product.create({ name: 'Y', price: 100 });
+    const customer = await Customer.create({ shopId: agent.shopId, name: 'X', mobile: '9000000000' });
+    const product = await Product.create({ shopId: agent.shopId, name: 'Y', price: 100 });
     await agent.post('/api/invoices').send({
       customerId: customer._id.toString(),
       items: [{ productId: product._id.toString(), quantity: 1 }],

@@ -1,17 +1,17 @@
 import * as productService from '../services/product.service.js';
 
 export async function list(req, res) {
-  const result = await productService.searchProducts(req.query);
+  const result = await productService.searchProducts(req.query, req.user.shopId);
   res.json(result);
 }
 
 export async function create(req, res) {
-  const product = await productService.createProduct(req.body);
+  const product = await productService.createProduct(req.body, req.user.shopId);
   res.status(201).json({ product });
 }
 
 export async function getOne(req, res) {
-  const product = await productService.getProductById(req.params.id);
+  const product = await productService.getProductById(req.params.id, req.user.shopId);
   if (!product) {
     return res.status(404).json({ error: { message: 'Product not found', code: 'NOT_FOUND' } });
   }
@@ -19,7 +19,7 @@ export async function getOne(req, res) {
 }
 
 export async function update(req, res) {
-  const product = await productService.updateProduct(req.params.id, req.body);
+  const product = await productService.updateProduct(req.params.id, req.body, req.user.shopId);
   if (!product) {
     return res.status(404).json({ error: { message: 'Product not found', code: 'NOT_FOUND' } });
   }

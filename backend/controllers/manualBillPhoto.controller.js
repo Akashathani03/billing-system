@@ -14,6 +14,7 @@ export async function upload(req, res) {
       customerId: req.body.customerId,
       file: req.file,
       createdBy: req.user.id,
+      shopId: req.user.shopId,
     });
     res.status(201).json({ photo: toPublicPhoto(photo) });
   } catch (err) {
@@ -25,7 +26,7 @@ export async function upload(req, res) {
 }
 
 export async function list(req, res) {
-  const photos = await manualBillPhotoService.listPhotosForCustomer(req.query.customerId);
+  const photos = await manualBillPhotoService.listPhotosForCustomer(req.query.customerId, req.user.shopId);
   res.json({ photos: photos.map(toPublicPhoto) });
 }
 
@@ -33,7 +34,7 @@ export async function list(req, res) {
 // authenticated endpoint — the bucket itself is never made public, and the
 // frontend's <img> URL (/api/manual-bills/:id/image) doesn't change.
 export async function getImage(req, res) {
-  const photo = await manualBillPhotoService.getPhotoById(req.params.id);
+  const photo = await manualBillPhotoService.getPhotoById(req.params.id, req.user.shopId);
   if (!photo) {
     return res.status(404).json({ error: { message: 'Photo not found', code: 'NOT_FOUND' } });
   }
@@ -51,7 +52,7 @@ export async function getImage(req, res) {
 }
 
 export async function remove(req, res) {
-  const photo = await manualBillPhotoService.deletePhoto(req.params.id);
+  const photo = await manualBillPhotoService.deletePhoto(req.params.id, req.user.shopId);
   if (!photo) {
     return res.status(404).json({ error: { message: 'Photo not found', code: 'NOT_FOUND' } });
   }

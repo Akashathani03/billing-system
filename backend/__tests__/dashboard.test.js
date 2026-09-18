@@ -60,20 +60,20 @@ describe('GET /api/dashboard/summary', () => {
   });
 
   test('B/C/D/E/F/G/H/I/J: sales, bills, paid, pending, breakdown all reconcile', async () => {
-    // A: 100 -> total 118, cash, paid
+    // A: 100, cash, paid
     const a = await createFinalizedInvoice(agent, { price: 100, paymentMethod: 'cash', paymentStatus: 'paid', customerMobile: '9111111111' });
-    // B: 200 -> total 236, upi, paid
+    // B: 200, upi, paid
     const b = await createFinalizedInvoice(agent, { price: 200, paymentMethod: 'upi', paymentStatus: 'paid', customerMobile: '9222222222' });
-    // C: 300 -> total 354, credit, PENDING
+    // C: 300, credit, PENDING
     const c = await createFinalizedInvoice(agent, { price: 300, paymentMethod: 'credit', paymentStatus: 'pending', customerMobile: '9333333333' });
-    // D: 400 -> total 472, card, paid
+    // D: 400, card, paid
     const d = await createFinalizedInvoice(agent, { price: 400, paymentMethod: 'card', paymentStatus: 'paid', customerMobile: '9444444444' });
 
     const res = await agent.get('/api/dashboard/summary');
     expect(res.status).toBe(200);
 
-    const expectedSales = 118 + 236 + 354 + 472; // 1180
-    const expectedPending = 354; // invoice C only
+    const expectedSales = 100 + 200 + 300 + 400; // 1000
+    const expectedPending = 300; // invoice C only
     const expectedPaid = expectedSales - expectedPending;
 
     expect(res.body.today.sales).toBe(expectedSales);
@@ -81,7 +81,7 @@ describe('GET /api/dashboard/summary', () => {
     expect(res.body.today.paid).toBe(expectedPaid); // H/I/J: pending credit excluded from paid
     expect(res.body.today.pending).toBe(expectedPending); // H/I: pending credit counted here
 
-    expect(res.body.paymentBreakdown).toEqual({ cash: 118, upi: 236, card: 472, credit: 354 });
+    expect(res.body.paymentBreakdown).toEqual({ cash: 100, upi: 200, card: 400, credit: 300 });
 
     // G: reconciliation
     const breakdownSum = Object.values(res.body.paymentBreakdown).reduce((s, v) => s + v, 0);
@@ -104,7 +104,7 @@ describe('GET /api/dashboard/summary', () => {
     await Invoice.findByIdAndUpdate(cancelled._id, { status: 'cancelled' });
 
     const res = await agent.get('/api/dashboard/summary');
-    expect(res.body.today.sales).toBe(118); // only the cash invoice
+    expect(res.body.today.sales).toBe(100); // only the cash invoice
     expect(res.body.today.bills).toBe(1);
     expect(res.body.today.pending).toBe(0);
     expect(res.body.paymentBreakdown.credit).toBe(0);
@@ -112,8 +112,8 @@ describe('GET /api/dashboard/summary', () => {
   });
 
   test('L: a draft invoice is excluded from every dashboard figure', async () => {
-    const customer = await Customer.create({ name: 'X', mobile: '9000000000' });
-    const product = await Product.create({ name: 'Y', price: 100 });
+    const customer = await Customer.create({ shopId: agent.shopId, name: 'X', mobile: '9000000000' });
+    const product = await Product.create({ shopId: agent.shopId, name: 'Y', price: 100 });
     await agent.post('/api/invoices').send({
       customerId: customer._id.toString(),
       items: [{ productId: product._id.toString(), quantity: 1 }],
@@ -133,8 +133,8 @@ describe('GET /api/dashboard/summary', () => {
       await setFinalizedAt(invoice._id, new Date(Date.now() - (6 - i) * 60 * 1000));
       finalized.push(invoice);
     }
-    const customer = await Customer.create({ name: 'Draft Only', mobile: '9999999999' });
-    const product = await Product.create({ name: 'Z', price: 50 });
+    const customer = await Customer.create({ shopId: agent.shopId, name: 'Draft Only', mobile: '9999999999' });
+    const product = await Product.create({ shopId: agent.shopId, name: 'Z', price: 50 });
     await agent.post('/api/invoices').send({
       customerId: customer._id.toString(),
       items: [{ productId: product._id.toString(), quantity: 1 }],
@@ -158,18 +158,18 @@ describe('GET /api/dashboard/summary', () => {
     await setFinalizedAt(justAfter._id, new Date(start.getTime()));
 
     const res = await agent.get('/api/dashboard/summary');
-    expect(res.body.today.sales).toBe(236); // only the 200-rupee (->236) invoice counts as today
+    expect(res.body.today.sales).toBe(200); // only the 200-rupee invoice counts as today
     expect(res.body.today.bills).toBe(1);
   });
 
   test('M: 7-day sales trend has 7 chronological entries with correct per-day sums', async () => {
     const { start: todayStart } = getBusinessDayRangeUTC();
 
-    const { invoice: today } = await createFinalizedInvoice(agent, { price: 100, customerMobile: '9111111111' }); // 118
+    const { invoice: today } = await createFinalizedInvoice(agent, { price: 100, customerMobile: '9111111111' });
     await setFinalizedAt(today._id, new Date(todayStart.getTime() + 60 * 1000));
 
     const threeDaysAgoStart = new Date(todayStart.getTime() - 3 * 24 * 60 * 60 * 1000);
-    const { invoice: threeDaysAgo } = await createFinalizedInvoice(agent, { price: 200, customerMobile: '9222222222' }); // 236
+    const { invoice: threeDaysAgo } = await createFinalizedInvoice(agent, { price: 200, customerMobile: '9222222222' });
     await setFinalizedAt(threeDaysAgo._id, new Date(threeDaysAgoStart.getTime() + 60 * 1000));
 
     const res = await agent.get('/api/dashboard/summary');
@@ -180,10 +180,10 @@ describe('GET /api/dashboard/summary', () => {
     expect(dates).toEqual(sortedAsc); // chronological, oldest first
 
     const lastDay = res.body.salesTrend[6];
-    expect(lastDay.total).toBe(118);
+    expect(lastDay.total).toBe(100);
 
     const dayMinus3 = res.body.salesTrend[3];
-    expect(dayMinus3.total).toBe(236);
+    expect(dayMinus3.total).toBe(200);
 
     const untouchedDay = res.body.salesTrend[1];
     expect(untouchedDay.total).toBe(0);

@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Invoice from '../models/Invoice.js';
 import { getPaymentTotals } from './invoice.service.js';
 import {
@@ -24,9 +25,15 @@ function formatMonthOnlyLabel(date) {
 }
 
 /** Shared aggregation used by both the rolling and calendar-year monthly views. */
-async function aggregateSalesByMonth(rangeStart, rangeEnd) {
+async function aggregateSalesByMonth(rangeStart, rangeEnd, shopId) {
   const results = await Invoice.aggregate([
-    { $match: { status: 'finalized', finalizedAt: { $gte: rangeStart, $lt: rangeEnd } } },
+    {
+      $match: {
+        shopId: new mongoose.Types.ObjectId(shopId),
+        status: 'finalized',
+        finalizedAt: { $gte: rangeStart, $lt: rangeEnd },
+      },
+    },
     {
       $group: {
         _id: { $dateToString: { format: '%Y-%m', date: '$finalizedAt', timezone: BUSINESS_UTC_OFFSET } },
@@ -40,22 +47,22 @@ async function aggregateSalesByMonth(rangeStart, rangeEnd) {
 
 /**
  * Finalized-invoice sales and bill counts for each of the last
- * MONTHLY_SALES_MONTHS business months (Asia/Kolkata), newest first. Sums
- * the invoice's already-stored `total` — never recalculated from current
- * product/customer data — and paymentStatus has no bearing on inclusion
- * (a pending finalized invoice is still a completed sale). A month with no
- * finalized invoices still appears, with sales 0 and bills 0, rather than
- * being omitted, so the history reads as a continuous timeline.
+ * MONTHLY_SALES_MONTHS business months (Asia/Kolkata), newest first, for
+ * one shop. Sums the invoice's already-stored `total` — never recalculated
+ * from current product/customer data — and paymentStatus has no bearing on
+ * inclusion (a pending finalized invoice is still a completed sale). A
+ * month with no finalized invoices still appears, with sales 0 and bills 0,
+ * rather than being omitted, so the history reads as a continuous timeline.
  *
  * This is a rolling window relative to "now", independent of any single
  * calendar year — it's the source for the "Last 12 Months" summary and is
  * unrelated to getMonthlySalesForYear below.
  */
-export async function getMonthlySales() {
+export async function getMonthlySales(shopId) {
   const monthRanges = getRecentBusinessMonthRanges(MONTHLY_SALES_MONTHS);
   const rangeStart = monthRanges[0].start;
   const rangeEnd = monthRanges[monthRanges.length - 1].end;
-  const byMonth = await aggregateSalesByMonth(rangeStart, rangeEnd);
+  const byMonth = await aggregateSalesByMonth(rangeStart, rangeEnd, shopId);
 
   return monthRanges
     .map(({ start }) => {
@@ -67,17 +74,17 @@ export async function getMonthlySales() {
 }
 
 /**
- * All 12 calendar months (January-December) of `year`, business timezone.
- * Unlike getMonthlySales, this always covers a FIXED year — including
- * future months with zero sales if `year` is the current year — so
- * switching the year selector always shows a complete, consistent Jan-Dec
- * history rather than a moving window.
+ * All 12 calendar months (January-December) of `year`, business timezone,
+ * for one shop. Unlike getMonthlySales, this always covers a FIXED year —
+ * including future months with zero sales if `year` is the current year —
+ * so switching the year selector always shows a complete, consistent
+ * Jan-Dec history rather than a moving window.
  */
-export async function getMonthlySalesForYear(year) {
+export async function getMonthlySalesForYear(year, shopId) {
   const monthRanges = getBusinessYearMonthRanges(year);
   const rangeStart = monthRanges[0].start;
   const rangeEnd = monthRanges[monthRanges.length - 1].end;
-  const byMonth = await aggregateSalesByMonth(rangeStart, rangeEnd);
+  const byMonth = await aggregateSalesByMonth(rangeStart, rangeEnd, shopId);
 
   return monthRanges.map(({ start, monthNumber }) => {
     const key = formatBusinessMonthKey(start);
@@ -90,21 +97,27 @@ const YEAR_BUFFER_BACK = 2;
 const YEAR_BUFFER_FORWARD = 1;
 
 /**
- * Years the shop could reasonably view sales history for: every distinct
- * year that has at least one finalized invoice, unioned with a fixed buffer
- * around the current business year (2 years back, 1 year ahead) — so the
- * selector always has a sensible, predictable set of nearby years even for
- * a brand-new shop with no history yet, while still surfacing genuinely
- * older data if it exists. Descending, newest first.
+ * Years this shop could reasonably view sales history for: every distinct
+ * year that shop has at least one finalized invoice in, unioned with a
+ * fixed buffer around the current business year (2 years back, 1 year
+ * ahead) — so the selector always has a sensible, predictable set of nearby
+ * years even for a brand-new shop with no history yet, while still
+ * surfacing genuinely older data if it exists. Descending, newest first.
  */
-export async function getAvailableSalesYears() {
+export async function getAvailableSalesYears(shopId) {
   const results = await Invoice.aggregate([
     // finalizedAt must actually exist — a handful of invoices finalized
     // before that field was introduced (Phase 4) predate it and are
     // otherwise status:'finalized' with no date. Without this, $dateToString
     // on a missing date returns null, and Number(null) silently coerces to
     // 0, producing a bogus "year 0" entry.
-    { $match: { status: 'finalized', finalizedAt: { $exists: true, $ne: null } } },
+    {
+      $match: {
+        shopId: new mongoose.Types.ObjectId(shopId),
+        status: 'finalized',
+        finalizedAt: { $exists: true, $ne: null },
+      },
+    },
     {
       $group: {
         _id: { $dateToString: { format: '%Y', date: '$finalizedAt', timezone: BUSINESS_UTC_OFFSET } },
@@ -121,13 +134,19 @@ export async function getAvailableSalesYears() {
   return Array.from(years).sort((a, b) => b - a);
 }
 
-async function getSalesTrend() {
+async function getSalesTrend(shopId) {
   const dayRanges = getRecentBusinessDayRanges(TREND_DAYS);
   const rangeStart = dayRanges[0].start;
   const rangeEnd = dayRanges[dayRanges.length - 1].end;
 
   const results = await Invoice.aggregate([
-    { $match: { status: 'finalized', finalizedAt: { $gte: rangeStart, $lt: rangeEnd } } },
+    {
+      $match: {
+        shopId: new mongoose.Types.ObjectId(shopId),
+        status: 'finalized',
+        finalizedAt: { $gte: rangeStart, $lt: rangeEnd },
+      },
+    },
     {
       $group: {
         _id: { $dateToString: { format: '%Y-%m-%d', date: '$finalizedAt', timezone: BUSINESS_UTC_OFFSET } },
@@ -145,7 +164,7 @@ async function getSalesTrend() {
 }
 
 /**
- * Sales vs. paid vs. pending, for a business day:
+ * Sales vs. paid vs. pending, for one shop's business day:
  *   sales   = sum(total) of every finalized invoice that day, regardless of paymentStatus
  *   pending = sum(total) where paymentStatus = 'pending'
  *   paid    = sales - pending
@@ -153,18 +172,18 @@ async function getSalesTrend() {
  * total lands in exactly one of those two buckets — paid is derived rather
  * than queried separately, saving a third aggregation.
  */
-export async function getDashboardSummary() {
+export async function getDashboardSummary(shopId) {
   const { start: todayStart, end: todayEnd } = getBusinessDayRangeUTC();
   const todayRangeFilter = { finalizedAt: { $gte: todayStart, $lt: todayEnd } };
 
   const [paymentTotals, bills, recentBills, salesTrend] = await Promise.all([
-    getPaymentTotals(todayRangeFilter),
-    Invoice.countDocuments({ status: 'finalized', ...todayRangeFilter }),
-    Invoice.find({ status: 'finalized' })
+    getPaymentTotals(todayRangeFilter, shopId),
+    Invoice.countDocuments({ shopId, status: 'finalized', ...todayRangeFilter }),
+    Invoice.find({ shopId, status: 'finalized' })
       .sort({ finalizedAt: -1 })
       .limit(RECENT_BILLS_LIMIT)
       .select('invoiceNumber customer.name total paymentMethod paymentStatus finalizedAt'),
-    getSalesTrend(),
+    getSalesTrend(shopId),
   ]);
 
   const paymentBreakdown = {

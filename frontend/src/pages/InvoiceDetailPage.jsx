@@ -125,10 +125,6 @@ export function InvoiceDetailPage() {
             <span>Subtotal</span>
             <span>₹{invoice.subtotal.toFixed(2)}</span>
           </div>
-          <div className="mt-1 flex justify-between text-sm text-neutral-600">
-            <span>GST {(invoice.taxRate * 100).toFixed(0)}%</span>
-            <span>₹{invoice.taxAmount.toFixed(2)}</span>
-          </div>
           <div className="mt-2 flex justify-between border-t border-neutral-200 pt-2 text-base font-semibold text-neutral-900">
             <span>Total</span>
             <span>₹{invoice.total.toFixed(2)}</span>

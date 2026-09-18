@@ -3,7 +3,7 @@
  * items never accumulates binary floating-point drift (e.g. 100.01 becoming
  * 100.009999...). Values are only converted back to rupee decimals once, at
  * the end, for storage/display. Rounding is round-half-up (Math.round),
- * matching standard commercial/GST rounding conventions.
+ * matching standard commercial rounding conventions.
  */
 
 export function toPaise(rupees) {
@@ -16,10 +16,6 @@ export function fromPaise(paise) {
 
 export function lineTotalPaise(priceRupees, quantity) {
   return Math.round(toPaise(priceRupees) * quantity);
-}
-
-export function taxAmountPaise(subtotalPaise, taxRate) {
-  return Math.round(subtotalPaise * taxRate);
 }
 
 /**

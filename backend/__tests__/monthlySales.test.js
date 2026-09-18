@@ -78,11 +78,11 @@ describe('GET /api/dashboard/monthly-sales', () => {
   });
 
   test('A/E: a finalized paid invoice is included in this month', async () => {
-    await createFinalizedInvoice(agent, { price: 100, paymentStatus: 'paid' }); // total 118
+    await createFinalizedInvoice(agent, { price: 100, paymentStatus: 'paid' });
 
     const res = await agent.get('/api/dashboard/monthly-sales');
     const currentMonth = res.body[0];
-    expect(currentMonth.sales).toBe(118);
+    expect(currentMonth.sales).toBe(100);
     expect(currentMonth.bills).toBe(1);
   });
 
@@ -91,17 +91,17 @@ describe('GET /api/dashboard/monthly-sales', () => {
       price: 200,
       paymentMethod: 'credit',
       paymentStatus: 'pending',
-    }); // total 236
+    });
 
     const res = await agent.get('/api/dashboard/monthly-sales');
     const currentMonth = res.body[0];
-    expect(currentMonth.sales).toBe(236);
+    expect(currentMonth.sales).toBe(200);
     expect(currentMonth.bills).toBe(1);
   });
 
   test('B: a draft invoice is excluded', async () => {
-    const customer = await Customer.create({ name: 'X', mobile: '9000000000' });
-    const product = await Product.create({ name: 'Y', price: 100 });
+    const customer = await Customer.create({ shopId: agent.shopId, name: 'X', mobile: '9000000000' });
+    const product = await Product.create({ shopId: agent.shopId, name: 'Y', price: 100 });
     await agent.post('/api/invoices').send({
       customerId: customer._id.toString(),
       items: [{ productId: product._id.toString(), quantity: 1 }],
@@ -122,13 +122,13 @@ describe('GET /api/dashboard/monthly-sales', () => {
   });
 
   test('F/G: multiple invoices in the same month are summed correctly', async () => {
-    await createFinalizedInvoice(agent, { price: 100, customerMobile: '9111111111' }); // 118
-    await createFinalizedInvoice(agent, { price: 200, customerMobile: '9222222222' }); // 236
-    await createFinalizedInvoice(agent, { price: 50, customerMobile: '9333333333' }); // 59
+    await createFinalizedInvoice(agent, { price: 100, customerMobile: '9111111111' });
+    await createFinalizedInvoice(agent, { price: 200, customerMobile: '9222222222' });
+    await createFinalizedInvoice(agent, { price: 50, customerMobile: '9333333333' });
 
     const res = await agent.get('/api/dashboard/monthly-sales');
     const currentMonth = res.body[0];
-    expect(currentMonth.sales).toBe(118 + 236 + 59);
+    expect(currentMonth.sales).toBe(100 + 200 + 50);
     expect(currentMonth.bills).toBe(3);
   });
 
@@ -152,9 +152,9 @@ describe('GET /api/dashboard/monthly-sales', () => {
     const thisMonth = res.body[0];
     const lastMonth = res.body[1];
 
-    expect(thisMonth.sales).toBe(236); // only the "justAfter" invoice
+    expect(thisMonth.sales).toBe(200); // only the "justAfter" invoice
     expect(thisMonth.bills).toBe(1);
-    expect(lastMonth.sales).toBe(118); // only the "justBefore" invoice
+    expect(lastMonth.sales).toBe(100); // only the "justBefore" invoice
     expect(lastMonth.bills).toBe(1);
 
     void previousMonth;
@@ -202,12 +202,12 @@ describe('GET /api/dashboard/monthly-sales?year=YYYY', () => {
     const yearRanges = getBusinessYearMonthRanges(year);
     const march = yearRanges[2]; // month index 2 = March
 
-    const { invoice } = await createFinalizedInvoice(agent, { price: 100 }); // total 118
+    const { invoice } = await createFinalizedInvoice(agent, { price: 100 });
     await setFinalizedAt(invoice._id, new Date(march.start.getTime() + 60 * 1000));
 
     const res = await agent.get('/api/dashboard/monthly-sales').query({ year });
     expect(res.body[2].month).toBe(3);
-    expect(res.body[2].sales).toBe(118);
+    expect(res.body[2].sales).toBe(100);
     expect(res.body[2].bills).toBe(1);
     // every other month in that year remains empty
     expect(res.body.filter((m) => m.month !== 3).every((m) => m.sales === 0 && m.bills === 0)).toBe(true);
@@ -217,8 +217,8 @@ describe('GET /api/dashboard/monthly-sales?year=YYYY', () => {
     const year = getCurrentBusinessYear() - 4;
     const yearRanges = getBusinessYearMonthRanges(year);
 
-    const customer = await Customer.create({ name: 'X', mobile: '9000000000' });
-    const product = await Product.create({ name: 'Y', price: 100 });
+    const customer = await Customer.create({ shopId: agent.shopId, name: 'X', mobile: '9000000000' });
+    const product = await Product.create({ shopId: agent.shopId, name: 'Y', price: 100 });
     await agent.post('/api/invoices').send({
       customerId: customer._id.toString(),
       items: [{ productId: product._id.toString(), quantity: 1 }],
@@ -272,8 +272,8 @@ describe('GET /api/dashboard/sales-years', () => {
   });
 
   test('a draft invoice never contributes a year beyond the fixed buffer (it has no finalizedAt and is not status=finalized)', async () => {
-    const customer = await Customer.create({ name: 'X', mobile: '9000000000' });
-    const product = await Product.create({ name: 'Y', price: 100 });
+    const customer = await Customer.create({ shopId: agent.shopId, name: 'X', mobile: '9000000000' });
+    const product = await Product.create({ shopId: agent.shopId, name: 'Y', price: 100 });
     await agent.post('/api/invoices').send({
       customerId: customer._id.toString(),
       items: [{ productId: product._id.toString(), quantity: 1 }],

@@ -38,8 +38,8 @@ afterEach(async () => {
 });
 
 async function makeCustomerAndProduct() {
-  const customer = await Customer.create({ name: 'Ramesh Kumar', mobile: '9876543210' });
-  const product = await Product.create({ name: 'LED Bulb 9W', price: 150, unit: 'pcs' });
+  const customer = await Customer.create({ shopId: agent.shopId, name: 'Ramesh Kumar', mobile: '9876543210' });
+  const product = await Product.create({ shopId: agent.shopId, name: 'LED Bulb 9W', price: 150, unit: 'pcs' });
   return { customer, product };
 }
 

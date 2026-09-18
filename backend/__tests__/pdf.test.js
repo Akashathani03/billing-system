@@ -67,8 +67,8 @@ describe('GET /api/invoices/:id/pdf', () => {
   });
 
   test('D: a draft invoice cannot generate a PDF', async () => {
-    const customer = await Customer.create({ name: 'X', mobile: '9000000000' });
-    const product = await Product.create({ name: 'Y', price: 100 });
+    const customer = await Customer.create({ shopId: agent.shopId, name: 'X', mobile: '9000000000' });
+    const product = await Product.create({ shopId: agent.shopId, name: 'Y', price: 100 });
     const draft = await agent.post('/api/invoices').send({
       customerId: customer._id.toString(),
       items: [{ productId: product._id.toString(), quantity: 1 }],

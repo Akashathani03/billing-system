@@ -3,10 +3,12 @@ import Product from '../../models/Product.js';
 
 export async function createFinalizedInvoice(agent, overrides = {}) {
   const customer = await Customer.create({
+    shopId: agent.shopId,
     name: overrides.customerName || 'Ramesh Kumar',
     mobile: overrides.customerMobile || '9876543210',
   });
   const product = await Product.create({
+    shopId: agent.shopId,
     name: overrides.productName || 'LED Bulb 9W',
     price: overrides.price ?? 150,
     unit: 'pcs',

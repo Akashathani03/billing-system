@@ -50,11 +50,14 @@ export const uploadMiddleware = multer({
  * fails — is handled by deleting the just-uploaded object, so a failed
  * request never leaves an orphaned object behind.
  */
-export async function attachPhotoToCustomer({ customerId, file, createdBy }) {
+export async function attachPhotoToCustomer({ customerId, file, createdBy, shopId }) {
   if (!mongoose.isValidObjectId(customerId)) {
     throw new ManualBillPhotoError('A valid customerId is required', 'INVALID_CUSTOMER', 400);
   }
-  const customer = await Customer.findById(customerId);
+  // Scoped to shopId — a customerId belonging to another shop resolves to
+  // nothing, the same as a nonexistent customerId, so a photo can never be
+  // attached to a customer outside the uploader's own shop.
+  const customer = await Customer.findOne({ _id: customerId, shopId });
   if (!customer) {
     throw new ManualBillPhotoError('Customer not found', 'CUSTOMER_NOT_FOUND', 404);
   }
@@ -64,6 +67,7 @@ export async function attachPhotoToCustomer({ customerId, file, createdBy }) {
 
   try {
     return await ManualBillPhoto.create({
+      shopId,
       customerId: customer._id,
       storageKey,
       mimeType: file.mimetype,
@@ -76,12 +80,12 @@ export async function attachPhotoToCustomer({ customerId, file, createdBy }) {
   }
 }
 
-export function listPhotosForCustomer(customerId) {
-  return ManualBillPhoto.find({ customerId }).sort({ createdAt: -1 });
+export function listPhotosForCustomer(customerId, shopId) {
+  return ManualBillPhoto.find({ customerId, shopId }).sort({ createdAt: -1 });
 }
 
-export function getPhotoById(id) {
-  return ManualBillPhoto.findById(id);
+export function getPhotoById(id, shopId) {
+  return ManualBillPhoto.findOne({ _id: id, shopId });
 }
 
 /** Fetches the actual image bytes for an already-looked-up photo record. */
@@ -96,8 +100,8 @@ export function getPhotoObject(photo) {
  * that's already gone; this way a failed delete just leaves a harmless
  * orphan in the bucket instead of a broken reference in the app.
  */
-export async function deletePhoto(id) {
-  const photo = await ManualBillPhoto.findByIdAndDelete(id);
+export async function deletePhoto(id, shopId) {
+  const photo = await ManualBillPhoto.findOneAndDelete({ _id: id, shopId });
   if (!photo) return null;
   await objectStorage.deleteObject(photo.storageKey).catch(() => {});
   return photo;

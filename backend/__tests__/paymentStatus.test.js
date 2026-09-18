@@ -98,8 +98,6 @@ describe('PATCH /api/invoices/:id/payment-status', () => {
     expect(res.body.invoice.customer).toEqual(invoice.customer);
     expect(res.body.invoice.items).toEqual(invoice.items);
     expect(res.body.invoice.subtotal).toBe(invoice.subtotal);
-    expect(res.body.invoice.taxRate).toBe(invoice.taxRate);
-    expect(res.body.invoice.taxAmount).toBe(invoice.taxAmount);
     expect(res.body.invoice.total).toBe(invoice.total);
     expect(res.body.invoice.amountInWords).toBe(invoice.amountInWords);
   });
@@ -121,8 +119,8 @@ describe('PATCH /api/invoices/:id/payment-status', () => {
   });
 
   test('V: a non-finalized invoice is rejected', async () => {
-    const customer = await Customer.create({ name: 'X', mobile: '9000000000' });
-    const product = await Product.create({ name: 'Y', price: 100 });
+    const customer = await Customer.create({ shopId: agent.shopId, name: 'X', mobile: '9000000000' });
+    const product = await Product.create({ shopId: agent.shopId, name: 'Y', price: 100 });
     const draft = await agent.post('/api/invoices').send({
       customerId: customer._id.toString(),
       items: [{ productId: product._id.toString(), quantity: 1 }],

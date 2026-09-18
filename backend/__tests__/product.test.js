@@ -63,8 +63,8 @@ describe('POST /api/products', () => {
 describe('GET /api/products', () => {
   test('excludes inactive products by default', async () => {
     await Product.create([
-      { name: 'LED Bulb', price: 150, isActive: true },
-      { name: 'Old Switch', price: 45, isActive: false },
+      { shopId: agent.shopId, name: 'LED Bulb', price: 150, isActive: true },
+      { shopId: agent.shopId, name: 'Old Switch', price: 45, isActive: false },
     ]);
 
     const res = await agent.get('/api/products');
@@ -74,8 +74,8 @@ describe('GET /api/products', () => {
 
   test('includes inactive products when includeInactive=true', async () => {
     await Product.create([
-      { name: 'LED Bulb', price: 150, isActive: true },
-      { name: 'Old Switch', price: 45, isActive: false },
+      { shopId: agent.shopId, name: 'LED Bulb', price: 150, isActive: true },
+      { shopId: agent.shopId, name: 'Old Switch', price: 45, isActive: false },
     ]);
 
     const res = await agent.get('/api/products').query({ includeInactive: 'true' });
@@ -84,8 +84,8 @@ describe('GET /api/products', () => {
 
   test('searches by partial name, case-insensitively', async () => {
     await Product.create([
-      { name: 'LED Bulb 9W', price: 150 },
-      { name: 'Switch Socket', price: 45 },
+      { shopId: agent.shopId, name: 'LED Bulb 9W', price: 150 },
+      { shopId: agent.shopId, name: 'Switch Socket', price: 45 },
     ]);
 
     const res = await agent.get('/api/products').query({ search: 'bulb' });
@@ -96,7 +96,7 @@ describe('GET /api/products', () => {
 
 describe('PATCH /api/products/:id', () => {
   test('edits fields without hard-deleting or affecting others', async () => {
-    const product = await Product.create({ name: 'LED Bulb', price: 150 });
+    const product = await Product.create({ shopId: agent.shopId, name: 'LED Bulb', price: 150 });
 
     const res = await agent.patch(`/api/products/${product._id}`).send({ price: 180 });
 
@@ -105,7 +105,7 @@ describe('PATCH /api/products/:id', () => {
   });
 
   test('deactivates a product (soft delete) instead of removing it', async () => {
-    const product = await Product.create({ name: 'LED Bulb', price: 150 });
+    const product = await Product.create({ shopId: agent.shopId, name: 'LED Bulb', price: 150 });
 
     const res = await agent.patch(`/api/products/${product._id}`).send({ isActive: false });
     expect(res.status).toBe(200);
@@ -116,7 +116,7 @@ describe('PATCH /api/products/:id', () => {
   });
 
   test('rejects an invalid price on update', async () => {
-    const product = await Product.create({ name: 'LED Bulb', price: 150 });
+    const product = await Product.create({ shopId: agent.shopId, name: 'LED Bulb', price: 150 });
     const res = await agent.patch(`/api/products/${product._id}`).send({ price: -5 });
     expect(res.status).toBe(400);
   });

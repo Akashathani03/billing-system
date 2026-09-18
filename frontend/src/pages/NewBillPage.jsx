@@ -339,13 +339,6 @@ function NewBillForm({ initialInvoice }) {
             <span>₹{preview.subtotal.toFixed(2)}</span>
           </div>
 
-          <div className="mt-1 flex justify-between text-sm text-neutral-600">
-            <span>
-              GST {(preview.taxRate * 100).toFixed(0)}%
-            </span>
-            <span>₹{preview.taxAmount.toFixed(2)}</span>
-          </div>
-
           <div className="mt-2 flex justify-between border-t border-neutral-200 pt-2 text-base font-semibold text-neutral-900">
             <span>Total</span>
             <span>₹{preview.total.toFixed(2)}</span>

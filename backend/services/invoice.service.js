@@ -2,8 +2,7 @@ import mongoose from 'mongoose';
 import Invoice from '../models/Invoice.js';
 import Customer from '../models/Customer.js';
 import Product from '../models/Product.js';
-import { DEFAULT_TAX_RATE } from '../config/businessConfig.js';
-import { lineTotalPaise, taxAmountPaise, fromPaise } from '../utils/money.js';
+import { lineTotalPaise, fromPaise } from '../utils/money.js';
 import { amountToWords } from '../utils/amountInWords.js';
 import { getNextInvoiceNumber } from './counter.service.js';
 import { parsePagination, buildSearchRegex } from '../utils/pagination.js';
@@ -17,8 +16,8 @@ export class InvoiceError extends Error {
   }
 }
 
-async function buildCustomerSnapshot(customerId) {
-  const customer = await Customer.findById(customerId);
+async function buildCustomerSnapshot(customerId, shopId) {
+  const customer = await Customer.findOne({ _id: customerId, shopId });
   if (!customer) {
     throw new InvoiceError('Customer not found', 'INVALID_CUSTOMER', 400);
   }
@@ -31,22 +30,26 @@ async function buildCustomerSnapshot(customerId) {
 }
 
 /**
- * Recomputes items, subtotal, tax, total, and amount-in-words from scratch,
+ * Recomputes items, subtotal, total, and amount-in-words from scratch,
  * always using the CURRENT product price from the database — never a
  * client-supplied price. This is the single source of truth for invoice
  * money, used identically by draft create/update and by finalization, so
  * there is exactly one calculation code path to trust.
+ *
+ * Products are looked up scoped to shopId — a productId belonging to
+ * another shop simply won't be found, the same way a nonexistent productId
+ * wouldn't be, so cross-shop invoice items fail closed automatically.
  */
-async function computeInvoiceFinancials(items, { allowEmpty, requireActiveProducts = false } = {}) {
+async function computeInvoiceFinancials(items, shopId, { allowEmpty, requireActiveProducts = false } = {}) {
   if (!items || items.length === 0) {
     if (allowEmpty) {
-      return { items: [], subtotal: 0, taxRate: DEFAULT_TAX_RATE, taxAmount: 0, total: 0, amountInWords: amountToWords(0) };
+      return { items: [], subtotal: 0, total: 0, amountInWords: amountToWords(0) };
     }
     throw new InvoiceError('Invoice must have at least one item', 'EMPTY_INVOICE', 400);
   }
 
   const productIds = items.map((item) => item.productId);
-  const products = await Product.find({ _id: { $in: productIds } });
+  const products = await Product.find({ _id: { $in: productIds }, shopId });
   const productMap = new Map(products.map((p) => [p._id.toString(), p]));
 
   let subtotalPaise = 0;
@@ -72,26 +75,22 @@ async function computeInvoiceFinancials(items, { allowEmpty, requireActiveProduc
     };
   });
 
-  const taxRate = DEFAULT_TAX_RATE;
-  const taxPaise = taxAmountPaise(subtotalPaise, taxRate);
-  const totalPaise = subtotalPaise + taxPaise;
-  const total = fromPaise(totalPaise);
+  const total = fromPaise(subtotalPaise);
 
   return {
     items: builtItems,
-    subtotal: fromPaise(subtotalPaise),
-    taxRate,
-    taxAmount: fromPaise(taxPaise),
+    subtotal: total,
     total,
     amountInWords: amountToWords(total),
   };
 }
 
-export async function createDraftInvoice({ customerId, items, paymentMethod, paymentStatus, createdBy }) {
-  const customer = await buildCustomerSnapshot(customerId);
-  const financials = await computeInvoiceFinancials(items, { allowEmpty: true });
+export async function createDraftInvoice({ customerId, items, paymentMethod, paymentStatus, createdBy, shopId }) {
+  const customer = await buildCustomerSnapshot(customerId, shopId);
+  const financials = await computeInvoiceFinancials(items, shopId, { allowEmpty: true });
 
   return Invoice.create({
+    shopId,
     status: 'draft',
     customer,
     ...financials,
@@ -101,13 +100,13 @@ export async function createDraftInvoice({ customerId, items, paymentMethod, pay
   });
 }
 
-export async function getInvoiceById(id) {
-  return Invoice.findById(id);
+export async function getInvoiceById(id, shopId) {
+  return Invoice.findOne({ _id: id, shopId });
 }
 
 /** Shared filter-building for GET /api/invoices and the customer-history endpoint. */
-function buildInvoiceListFilter(query) {
-  const filter = {};
+function buildInvoiceListFilter(query, shopId) {
+  const filter = { shopId };
   if (query.status) filter.status = query.status;
   if (query.paymentMethod) filter.paymentMethod = query.paymentMethod;
   if (query.paymentStatus) filter.paymentStatus = query.paymentStatus;
@@ -133,9 +132,9 @@ function buildInvoiceListFilter(query) {
   return filter;
 }
 
-export async function listInvoices(query) {
+export async function listInvoices(query, shopId) {
   const { page, limit, skip } = parsePagination(query);
-  const filter = buildInvoiceListFilter(query);
+  const filter = buildInvoiceListFilter(query, shopId);
 
   const [invoices, total] = await Promise.all([
     Invoice.find(filter).sort({ finalizedAt: -1, createdAt: -1 }).skip(skip).limit(limit),
@@ -145,8 +144,8 @@ export async function listInvoices(query) {
   return { invoices, total, page, limit };
 }
 
-export async function updateDraftInvoice(id, { customerId, items, paymentMethod, paymentStatus }) {
-  const invoice = await Invoice.findById(id);
+export async function updateDraftInvoice(id, { customerId, items, paymentMethod, paymentStatus }, shopId) {
+  const invoice = await Invoice.findOne({ _id: id, shopId });
   if (!invoice) return null;
 
   if (invoice.status !== 'draft') {
@@ -154,15 +153,13 @@ export async function updateDraftInvoice(id, { customerId, items, paymentMethod,
   }
 
   if (customerId) {
-    invoice.customer = await buildCustomerSnapshot(customerId);
+    invoice.customer = await buildCustomerSnapshot(customerId, shopId);
   }
 
   if (items !== undefined) {
-    const financials = await computeInvoiceFinancials(items, { allowEmpty: true });
+    const financials = await computeInvoiceFinancials(items, shopId, { allowEmpty: true });
     invoice.items = financials.items;
     invoice.subtotal = financials.subtotal;
-    invoice.taxRate = financials.taxRate;
-    invoice.taxAmount = financials.taxAmount;
     invoice.total = financials.total;
     invoice.amountInWords = financials.amountInWords;
   }
@@ -181,8 +178,8 @@ export async function updateDraftInvoice(id, { customerId, items, paymentMethod,
  * should be able to throw away a bill they started and don't want. Only
  * ever allowed while status is still 'draft'.
  */
-export async function deleteDraftInvoice(id) {
-  const invoice = await Invoice.findById(id);
+export async function deleteDraftInvoice(id, shopId) {
+  const invoice = await Invoice.findOne({ _id: id, shopId });
   if (!invoice) return null;
 
   if (invoice.status !== 'draft') {
@@ -201,26 +198,28 @@ export async function deleteDraftInvoice(id) {
  * that instant. The status-guarded conditional update is what prevents two
  * concurrent finalize calls on the same invoice from both succeeding — the
  * second one's filter simply won't match and it gets a 409 instead of a
- * silently duplicated finalize.
+ * silently duplicated finalize. The filter also re-checks shopId, so even a
+ * theoretical tampered request can never finalize another shop's draft.
  */
-export async function finalizeInvoice(id) {
-  const invoice = await Invoice.findById(id);
+export async function finalizeInvoice(id, shopId) {
+  const invoice = await Invoice.findOne({ _id: id, shopId });
   if (!invoice) return null;
 
   if (invoice.status !== 'draft') {
     throw new InvoiceError('Invoice is not a draft and cannot be finalized', 'INVALID_STATE', 409);
   }
 
-  const customer = await buildCustomerSnapshot(invoice.customer.customerId);
+  const customer = await buildCustomerSnapshot(invoice.customer.customerId, shopId);
   const financials = await computeInvoiceFinancials(
     invoice.items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+    shopId,
     { allowEmpty: false, requireActiveProducts: true },
   );
 
-  const invoiceNumber = await getNextInvoiceNumber();
+  const invoiceNumber = await getNextInvoiceNumber(shopId);
 
   const finalized = await Invoice.findOneAndUpdate(
-    { _id: id, status: 'draft' },
+    { _id: id, shopId, status: 'draft' },
     {
       $set: {
         status: 'finalized',
@@ -229,8 +228,6 @@ export async function finalizeInvoice(id) {
         customer,
         items: financials.items,
         subtotal: financials.subtotal,
-        taxRate: financials.taxRate,
-        taxAmount: financials.taxAmount,
         total: financials.total,
         amountInWords: financials.amountInWords,
       },
@@ -255,13 +252,13 @@ export async function finalizeInvoice(id) {
  * "Mark as Paid" tap can never be ambiguous about what it did.
  *
  * Race safety mirrors finalizeInvoice: the atomic update's filter re-checks
- * paymentStatus:'pending' at write time, so if two requests race, only the
- * one that's still looking at a genuinely-pending invoice succeeds — the
- * loser's filter won't match and it gets CONFLICT instead of a second
- * audit entry for the same transition.
+ * paymentStatus:'pending' (and shopId) at write time, so if two requests
+ * race, only the one that's still looking at a genuinely-pending invoice in
+ * the right shop succeeds — the loser's filter won't match and it gets
+ * CONFLICT instead of a second audit entry for the same transition.
  */
-export async function updatePaymentStatus(id, { newStatus, changedBy }) {
-  const invoice = await Invoice.findById(id);
+export async function updatePaymentStatus(id, { newStatus, changedBy }, shopId) {
+  const invoice = await Invoice.findOne({ _id: id, shopId });
   if (!invoice) return null;
 
   if (invoice.status !== 'finalized') {
@@ -273,7 +270,7 @@ export async function updatePaymentStatus(id, { newStatus, changedBy }) {
   }
 
   const updated = await Invoice.findOneAndUpdate(
-    { _id: id, status: 'finalized', paymentStatus: 'pending' },
+    { _id: id, shopId, status: 'finalized', paymentStatus: 'pending' },
     {
       $set: { paymentStatus: 'paid' },
       $push: {
@@ -297,9 +294,13 @@ export async function updatePaymentStatus(id, { newStatus, changedBy }) {
  * shouldn't appear in "their bills" any more than a draft would. Drafts are
  * excluded for the same reason: nothing was ever actually billed.
  */
-export async function getInvoicesByCustomer(customerId, query) {
+export async function getInvoicesByCustomer(customerId, query, shopId) {
   const { page, limit, skip } = parsePagination(query);
-  const filter = { 'customer.customerId': new mongoose.Types.ObjectId(customerId), status: 'finalized' };
+  const filter = {
+    shopId: new mongoose.Types.ObjectId(shopId),
+    'customer.customerId': new mongoose.Types.ObjectId(customerId),
+    status: 'finalized',
+  };
 
   const [invoices, totalBills, totalsAgg] = await Promise.all([
     Invoice.find(filter).sort({ finalizedAt: -1 }).skip(skip).limit(limit),
@@ -318,15 +319,13 @@ export async function getInvoicesByCustomer(customerId, query) {
 
 /**
  * Sums finalized-invoice totals by payment method, plus the pending total,
- * over an optional base filter (e.g. a date range). Not wired to any route
- * yet — Phase 5's dashboard is the intended caller — but written now so
- * that work reuses this instead of duplicating the aggregation. `filter`
- * must already contain real ObjectId instances for any id fields (this
- * runs through aggregate(), which — unlike find()/countDocuments() — does
- * not auto-cast query values).
+ * over an optional base filter (e.g. a date range) — always additionally
+ * scoped to shopId. `filter` must already contain real ObjectId instances
+ * for any id fields (this runs through aggregate(), which — unlike
+ * find()/countDocuments() — does not auto-cast query values).
  */
-export async function getPaymentTotals(filter = {}) {
-  const baseFilter = { ...filter, status: 'finalized' };
+export async function getPaymentTotals(filter = {}, shopId) {
+  const baseFilter = { ...filter, shopId: new mongoose.Types.ObjectId(shopId), status: 'finalized' };
 
   const [byMethod, pendingAgg] = await Promise.all([
     Invoice.aggregate([{ $match: baseFilter }, { $group: { _id: '$paymentMethod', total: { $sum: '$total' } } }]),

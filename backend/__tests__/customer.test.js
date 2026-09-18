@@ -61,9 +61,9 @@ describe('POST /api/customers', () => {
 describe('GET /api/customers', () => {
   test('searches by partial name or mobile, case-insensitively', async () => {
     await Customer.create([
-      { name: 'Ramesh Kumar', mobile: '9876543210' },
-      { name: 'Suresh', mobile: '9988776655' },
-      { name: 'Mahesh', mobile: '9000011111' },
+      { shopId: agent.shopId, name: 'Ramesh Kumar', mobile: '9876543210' },
+      { shopId: agent.shopId, name: 'Suresh', mobile: '9988776655' },
+      { shopId: agent.shopId, name: 'Mahesh', mobile: '9000011111' },
     ]);
 
     const byName = await agent.get('/api/customers').query({ search: 'ramesh' });
@@ -76,7 +76,7 @@ describe('GET /api/customers', () => {
   });
 
   test('paginates results', async () => {
-    const docs = Array.from({ length: 25 }, (_, i) => ({ name: `Customer ${i}`, mobile: `900000${i}` }));
+    const docs = Array.from({ length: 25 }, (_, i) => ({ shopId: agent.shopId, name: `Customer ${i}`, mobile: `900000${i}` }));
     await Customer.create(docs);
 
     const res = await agent.get('/api/customers').query({ page: 2, limit: 10 });
@@ -99,7 +99,7 @@ describe('GET /api/customers/:id', () => {
   });
 
   test('returns the customer', async () => {
-    const customer = await Customer.create({ name: 'Ramesh', mobile: '9876543210' });
+    const customer = await Customer.create({ shopId: agent.shopId, name: 'Ramesh', mobile: '9876543210' });
     const res = await agent.get(`/api/customers/${customer._id}`);
     expect(res.status).toBe(200);
     expect(res.body.customer.name).toBe('Ramesh');
@@ -109,6 +109,7 @@ describe('GET /api/customers/:id', () => {
 describe('PATCH /api/customers/:id', () => {
   test('updates only the provided fields, leaving others untouched', async () => {
     const customer = await Customer.create({
+      shopId: agent.shopId,
       name: 'Ramesh',
       mobile: '9876543210',
       address: 'Athani Road',

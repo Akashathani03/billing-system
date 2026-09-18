@@ -11,7 +11,16 @@ export function requireAuth(req, res, next) {
 
   try {
     const payload = verifyToken(token);
-    req.user = { id: payload.id, username: payload.username, name: payload.name, role: payload.role };
+    // shopId is the authorization boundary for every protected route below —
+    // it comes from the signed JWT payload only, never from anything the
+    // client supplies on the request itself.
+    req.user = {
+      id: payload.id,
+      username: payload.username,
+      name: payload.name,
+      role: payload.role,
+      shopId: payload.shopId,
+    };
     next();
   } catch {
     return res.status(401).json({

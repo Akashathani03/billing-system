@@ -1,23 +1,22 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
+// Each shop's identity (name/address/phone/email/invoiceTerms) is stored on
+// its own Shop document, not here — see models/Shop.js.
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-export const DEFAULT_TAX_RATE = parseFloat(process.env.TAX_RATE ?? '0.18');
-
-// Single source of shop identity for invoice output (PDF, print). Only
-// fields actually present in the environment are populated — nothing here
-// is invented, and consumers must treat any of these as possibly undefined.
-// SHOP_LOGO_PATH is relative to the backend/ project root.
-export const SHOP_CONFIG = {
-  name: process.env.SHOP_NAME,
-  address: process.env.SHOP_ADDRESS,
-  phone: process.env.SHOP_PHONE,
-  gst: process.env.SHOP_GST,
-  email: process.env.SHOP_EMAIL,
-  logoPath: process.env.SHOP_LOGO_PATH ? path.resolve(__dirname, '..', process.env.SHOP_LOGO_PATH) : undefined,
-  invoiceTerms: process.env.INVOICE_TERMS,
-};
+/**
+ * Reads the SHOP_* env vars as a one-time bootstrap config for a NEW shop
+ * being created by seedAdmin.js or migrateLegacyDataToShop.js. Only fields
+ * actually present in the environment are included — never invented — so
+ * spreading this into a Shop.create() call leaves any unset field to the
+ * schema's own default (or undefined) rather than an explicit empty string.
+ */
+export function shopConfigFromEnv() {
+  const config = {
+    address: process.env.SHOP_ADDRESS,
+    phone: process.env.SHOP_PHONE,
+    email: process.env.SHOP_EMAIL,
+    invoiceTerms: process.env.INVOICE_TERMS,
+  };
+  return Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined));
+}
 
 // The shop's business day is defined in Asia/Kolkata. India has observed a
 // single fixed UTC+5:30 offset with no DST since 1945, so this can safely

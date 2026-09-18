@@ -31,7 +31,13 @@ const paymentHistorySchema = new mongoose.Schema(
 
 const invoiceSchema = new mongoose.Schema(
   {
-    invoiceNumber: { type: String, unique: true, sparse: true },
+    shopId: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop', required: true },
+    // Not globally unique any more — invoice numbers are per-shop sequential
+    // (see counter.service.js), so uniqueness is enforced on {shopId,
+    // invoiceNumber} below instead of on invoiceNumber alone. No `sparse`
+    // here: the index below is a PARTIAL index instead (see comment there),
+    // so this field needs no index option of its own.
+    invoiceNumber: { type: String },
     status: { type: String, enum: ['draft', 'finalized', 'cancelled'], default: 'draft' },
     // Set only at finalization — this is the date a draft actually became a
     // real bill, which is what billing-history sorting/date-filtering and
@@ -44,8 +50,6 @@ const invoiceSchema = new mongoose.Schema(
     items: { type: [itemSchema], default: [] },
 
     subtotal: { type: Number, default: 0 },
-    taxRate: { type: Number, default: 0 },
-    taxAmount: { type: Number, default: 0 },
     total: { type: Number, default: 0 },
     amountInWords: { type: String },
 
@@ -63,10 +67,23 @@ const invoiceSchema = new mongoose.Schema(
 // and the sort in one index scan, and its prefix (status alone) already
 // covers the Drafts page's {status:'draft'} filter, so a standalone status
 // index would be redundant.
-invoiceSchema.index({ status: 1, finalizedAt: -1 });
-invoiceSchema.index({ createdAt: -1 });
-invoiceSchema.index({ paymentStatus: 1 });
-invoiceSchema.index({ paymentMethod: 1 });
-invoiceSchema.index({ 'customer.customerId': 1 });
+// A plain `sparse` compound index only excludes a document when EVERY
+// indexed field is missing — since shopId is always present, a `sparse`
+// {shopId, invoiceNumber} index would still index every draft (invoiceNumber
+// absent) as invoiceNumber:null, and a second draft in the same shop would
+// collide on that null. A PARTIAL index avoids this: it only includes
+// documents matching the filter expression at all, so drafts (where
+// invoiceNumber truly doesn't exist on the document) are excluded outright,
+// while finalized invoices (which always get a real invoiceNumber at
+// finalization) are still enforced unique per shop.
+invoiceSchema.index(
+  { shopId: 1, invoiceNumber: 1 },
+  { unique: true, partialFilterExpression: { invoiceNumber: { $exists: true } } },
+);
+invoiceSchema.index({ shopId: 1, status: 1, finalizedAt: -1 });
+invoiceSchema.index({ shopId: 1, createdAt: -1 });
+invoiceSchema.index({ shopId: 1, paymentStatus: 1 });
+invoiceSchema.index({ shopId: 1, paymentMethod: 1 });
+invoiceSchema.index({ shopId: 1, 'customer.customerId': 1 });
 
 export default mongoose.model('Invoice', invoiceSchema);
