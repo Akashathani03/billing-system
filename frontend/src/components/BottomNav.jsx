@@ -10,10 +10,10 @@ const icons = {
   products: (
     <path d="M21 8 12 3 3 8m18 0-9 5m9-5v9l-9 5m0-9L3 8m9 5v9M3 8v9l9 5" />
   ),
-  account: (
+  ai: (
     <>
-      <circle cx="12" cy="8" r="3.2" />
-      <path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2" />
+      <path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" />
+      <circle cx="12" cy="12" r="3.2" />
     </>
   ),
 };
@@ -94,7 +94,7 @@ export function BottomNav() {
       </NavLink>
 
       <NavTab to="/products" label="Products" icon="products" />
-      <NavTab to="/more" label="Account" icon="account" />
+      <NavTab to="/ai-assistant" label="Clerk" icon="ai" />
     </nav>
   );
 }

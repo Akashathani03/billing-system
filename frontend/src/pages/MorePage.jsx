@@ -67,6 +67,17 @@ export function MorePage() {
         <SectionLabel>Account</SectionLabel>
         <div className="divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-white">
           <ActionRow
+            to="/ai-assistant"
+            title="Clerk"
+            description="Ask questions about your billing data"
+            icon={
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                <path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" />
+                <circle cx="12" cy="12" r="3.2" />
+              </svg>
+            }
+          />
+          <ActionRow
             to="/customers"
             title="Customers"
             icon={

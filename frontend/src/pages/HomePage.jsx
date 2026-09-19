@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useDashboardSummaryQuery } from '../hooks/useDashboard';
 import { DashboardSkeleton } from '../components/DashboardSkeleton';
@@ -19,8 +20,22 @@ export function HomePage() {
 
   return (
     <div className="px-4 pt-6 pb-4">
-      <h1 className="text-xl font-semibold text-neutral-900">{greeting()} 👋</h1>
-      <p className="mt-1 text-sm text-neutral-500">{user?.name}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-neutral-900">{greeting()} 👋</h1>
+          <p className="mt-1 text-sm text-neutral-500">{user?.name}</p>
+        </div>
+        <Link
+          to="/more"
+          aria-label="Account"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 active:bg-neutral-100"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+            <circle cx="12" cy="8" r="3.2" />
+            <path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2" />
+          </svg>
+        </Link>
+      </div>
 
       {isLoading && <DashboardSkeleton />}
 

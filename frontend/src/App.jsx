@@ -14,6 +14,7 @@ import { DraftsPage } from './pages/DraftsPage';
 import { BillsPage } from './pages/BillsPage';
 import { InvoiceDetailPage } from './pages/InvoiceDetailPage';
 import { MonthlySalesPage } from './pages/MonthlySalesPage';
+import { AiAssistantPage } from './pages/AiAssistantPage';
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ function App() {
                 <Route path="/customers" element={<CustomersPage />} />
                 <Route path="/customers/:id" element={<CustomerDetailPage />} />
                 <Route path="/more" element={<MorePage />} />
+                <Route path="/ai-assistant" element={<AiAssistantPage />} />
                 <Route path="/more/drafts" element={<DraftsPage />} />
                 <Route path="/more/monthly-sales" element={<MonthlySalesPage />} />
               </Route>

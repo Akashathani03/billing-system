@@ -28,9 +28,9 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
       },
       manifest: {
-        name: 'Mahaveer Electrical Shop Billing',
-        short_name: 'Mahaveer Billing',
-        description: 'Billing system for Mahaveer Electrical Shop',
+        name: 'Billing System',
+        short_name: 'Billing',
+        description: 'Multi-shop billing system with the Clerk AI assistant',
         theme_color: '#1d4ed8',
         background_color: '#fafafa',
         display: 'standalone',
