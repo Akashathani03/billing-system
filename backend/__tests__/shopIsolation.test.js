@@ -21,7 +21,7 @@ beforeAll(async () => {
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = 'test-secret';
   process.env.JWT_EXPIRES_IN = '7d';
-  process.env.COOKIE_NAME = 'mahaveer_session';
+  process.env.COOKIE_NAME = 'billing_session';
 
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());

@@ -14,11 +14,11 @@ const STATUS_LABELS = { paid: 'Paid', pending: 'Pending' };
  * this uses "Rs." (a standard, universally understood substitute on Indian
  * invoices) so amounts always render correctly with zero added dependency.
  */
-function formatMoney(amount) {
+export function formatMoney(amount) {
   return `Rs. ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function formatDate(date) {
+export function formatDate(date) {
   return new Date(date).toLocaleDateString('en-IN', {
     timeZone: BUSINESS_TIMEZONE,
     day: '2-digit',
@@ -192,6 +192,110 @@ export function renderInvoicePdf(invoice, shopConfig) {
 
     try {
       drawInvoice(doc, invoice, shopConfig);
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+function drawReportTitle(doc, { title, periodLabel, generatedAt }) {
+  doc.fontSize(15).font('Helvetica-Bold').text(title, { align: 'center' });
+  doc.moveDown(0.3);
+  doc.fontSize(9).font('Helvetica').fillColor('#555555');
+  doc.text(`Period: ${periodLabel}`, { align: 'center' });
+  doc.text(`Generated: ${formatDate(generatedAt)}`, { align: 'center' });
+  doc.fillColor('black');
+  doc.moveDown(0.6);
+}
+
+/** Label/value pairs, same two-column same-row layout already used by drawTotals(). */
+function drawReportSummary(doc, summary) {
+  doc.fontSize(11).font('Helvetica-Bold').text('Summary', PAGE_LEFT, doc.y);
+  doc.moveDown(0.3);
+
+  summary.forEach(({ label, value }) => {
+    const rowY = doc.y;
+    doc.fontSize(10).font('Helvetica').text(label, PAGE_LEFT, rowY, { width: 300 });
+    doc.font('Helvetica-Bold').text(value, PAGE_LEFT, rowY, { width: PAGE_RIGHT - PAGE_LEFT, align: 'right' });
+    doc.moveDown(0.35);
+  });
+
+  doc.moveDown(0.3);
+  doc.moveTo(PAGE_LEFT, doc.y).lineTo(PAGE_RIGHT, doc.y).strokeColor('#cccccc').stroke();
+  doc.moveDown(0.5);
+}
+
+/**
+ * A generic column table — same per-row "capture one rowY, draw every
+ * column at that same y, then moveDown once" technique already used by
+ * drawItems() for invoice line items, just with caller-supplied columns
+ * instead of the fixed product/qty/price/total set.
+ */
+function drawReportTable(doc, columns, rows) {
+  const positions = [];
+  let x = PAGE_LEFT;
+  for (const col of columns) {
+    positions.push(x);
+    x += col.width;
+  }
+
+  function drawRow(cells, font, fontSize) {
+    doc.font(font).fontSize(fontSize);
+    const rowY = doc.y;
+    columns.forEach((col, i) => {
+      doc.text(cells[i], positions[i], rowY, { width: col.width, align: col.align || 'left' });
+    });
+    doc.moveDown(0.4);
+  }
+
+  drawRow(columns.map((c) => c.label), 'Helvetica-Bold', 10);
+  doc.moveTo(PAGE_LEFT, doc.y).lineTo(PAGE_RIGHT, doc.y).strokeColor('#cccccc').stroke();
+  doc.moveDown(0.3);
+
+  if (rows.length === 0) {
+    doc.font('Helvetica').fontSize(10).fillColor('#777777').text('No matching records.', PAGE_LEFT, doc.y);
+    doc.fillColor('black');
+    doc.moveDown(0.4);
+  } else {
+    rows.forEach((row) => drawRow(columns.map((c) => String(row[c.key] ?? '')), 'Helvetica', 9));
+  }
+
+  doc.moveTo(PAGE_LEFT, doc.y).lineTo(PAGE_RIGHT, doc.y).strokeColor('#cccccc').stroke();
+  doc.moveDown(0.5);
+}
+
+/**
+ * Renders a generic tabular billing report (bills/payments/sales/top
+ * products/outstanding customers) to a PDF Buffer. Reuses the exact same
+ * shop-identity header (drawHeader), money/date formatting, page-layout
+ * constants, and per-row drawing technique as the invoice PDF above —
+ * this is deliberately not a second PDF stack, just a second thing drawn
+ * with the same one.
+ *
+ * `shopConfig` must be loaded via the report's own shopId, never anything
+ * else — same rule as renderInvoicePdf, so one shop's report can never
+ * carry another shop's business identity. `rows` is expected to already be
+ * a bounded, report-service-decided page of data — this function does not
+ * itself impose or know about any row limit.
+ */
+export function renderReportPdf({ shopConfig, title, periodLabel, generatedAt, summary = [], columns = [], rows = [], note }) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const chunks = [];
+    doc.on('data', (chunk) => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    try {
+      drawHeader(doc, shopConfig);
+      drawReportTitle(doc, { title, periodLabel, generatedAt });
+      if (summary.length > 0) drawReportSummary(doc, summary);
+      if (columns.length > 0) drawReportTable(doc, columns, rows);
+      if (note) {
+        doc.fontSize(8).font('Helvetica').fillColor('#777777').text(note, PAGE_LEFT, doc.y, { width: PAGE_RIGHT - PAGE_LEFT });
+        doc.fillColor('black');
+      }
       doc.end();
     } catch (err) {
       reject(err);

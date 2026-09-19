@@ -29,17 +29,6 @@ async function buildCustomerSnapshot(customerId, shopId) {
   };
 }
 
-/**
- * Recomputes items, subtotal, total, and amount-in-words from scratch,
- * always using the CURRENT product price from the database — never a
- * client-supplied price. This is the single source of truth for invoice
- * money, used identically by draft create/update and by finalization, so
- * there is exactly one calculation code path to trust.
- *
- * Products are looked up scoped to shopId — a productId belonging to
- * another shop simply won't be found, the same way a nonexistent productId
- * wouldn't be, so cross-shop invoice items fail closed automatically.
- */
 async function computeInvoiceFinancials(items, shopId, { allowEmpty, requireActiveProducts = false } = {}) {
   if (!items || items.length === 0) {
     if (allowEmpty) {
@@ -53,11 +42,14 @@ async function computeInvoiceFinancials(items, shopId, { allowEmpty, requireActi
   const productMap = new Map(products.map((p) => [p._id.toString(), p]));
 
   let subtotalPaise = 0;
+
   const builtItems = items.map((item) => {
     const product = productMap.get(String(item.productId));
+
     if (!product) {
       throw new InvoiceError(`Product ${item.productId} not found`, 'INVALID_PRODUCT', 400);
     }
+
     if (requireActiveProducts && !product.isActive) {
       throw new InvoiceError(`Product "${product.name}" is no longer active`, 'INACTIVE_PRODUCT', 400);
     }
@@ -85,7 +77,14 @@ async function computeInvoiceFinancials(items, shopId, { allowEmpty, requireActi
   };
 }
 
-export async function createDraftInvoice({ customerId, items, paymentMethod, paymentStatus, createdBy, shopId }) {
+export async function createDraftInvoice({
+  customerId,
+  items,
+  paymentMethod,
+  paymentStatus,
+  createdBy,
+  shopId,
+}) {
   const customer = await buildCustomerSnapshot(customerId, shopId);
   const financials = await computeInvoiceFinancials(items, shopId, { allowEmpty: true });
 
@@ -104,29 +103,35 @@ export async function getInvoiceById(id, shopId) {
   return Invoice.findOne({ _id: id, shopId });
 }
 
-/** Shared filter-building for GET /api/invoices and the customer-history endpoint. */
 function buildInvoiceListFilter(query, shopId) {
   const filter = { shopId };
+
   if (query.status) filter.status = query.status;
   if (query.paymentMethod) filter.paymentMethod = query.paymentMethod;
   if (query.paymentStatus) filter.paymentStatus = query.paymentStatus;
 
   if (query.dateFrom || query.dateTo) {
     filter.finalizedAt = {};
-    // Date-only strings (YYYY-MM-DD) parse as UTC midnight. For the upper
-    // bound, add exactly 24h in UTC and use an exclusive `$lt` rather than
-    // `setHours(23,59,59,999)`, which mutates in the SERVER's local
-    // timezone and would shift the cutoff by its UTC offset — silently
-    // wrong on any server not running in UTC.
-    if (query.dateFrom) filter.finalizedAt.$gte = new Date(query.dateFrom);
+
+    if (query.dateFrom) {
+      filter.finalizedAt.$gte = new Date(query.dateFrom);
+    }
+
     if (query.dateTo) {
-      filter.finalizedAt.$lt = new Date(new Date(query.dateTo).getTime() + 24 * 60 * 60 * 1000);
+      filter.finalizedAt.$lt = new Date(
+        new Date(query.dateTo).getTime() + 24 * 60 * 60 * 1000,
+      );
     }
   }
 
   if (query.search?.trim()) {
     const regex = buildSearchRegex(query.search);
-    filter.$or = [{ invoiceNumber: regex }, { 'customer.name': regex }, { 'customer.mobile': regex }];
+
+    filter.$or = [
+      { invoiceNumber: regex },
+      { 'customer.name': regex },
+      { 'customer.mobile': regex },
+    ];
   }
 
   return filter;
@@ -137,19 +142,31 @@ export async function listInvoices(query, shopId) {
   const filter = buildInvoiceListFilter(query, shopId);
 
   const [invoices, total] = await Promise.all([
-    Invoice.find(filter).sort({ finalizedAt: -1, createdAt: -1 }).skip(skip).limit(limit),
+    Invoice.find(filter)
+      .sort({ finalizedAt: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
     Invoice.countDocuments(filter),
   ]);
 
   return { invoices, total, page, limit };
 }
 
-export async function updateDraftInvoice(id, { customerId, items, paymentMethod, paymentStatus }, shopId) {
+export async function updateDraftInvoice(
+  id,
+  { customerId, items, paymentMethod, paymentStatus },
+  shopId,
+) {
   const invoice = await Invoice.findOne({ _id: id, shopId });
+
   if (!invoice) return null;
 
   if (invoice.status !== 'draft') {
-    throw new InvoiceError('Only draft invoices can be edited', 'INVALID_STATE', 409);
+    throw new InvoiceError(
+      'Only draft invoices can be edited',
+      'INVALID_STATE',
+      409,
+    );
   }
 
   if (customerId) {
@@ -157,7 +174,10 @@ export async function updateDraftInvoice(id, { customerId, items, paymentMethod,
   }
 
   if (items !== undefined) {
-    const financials = await computeInvoiceFinancials(items, shopId, { allowEmpty: true });
+    const financials = await computeInvoiceFinancials(items, shopId, {
+      allowEmpty: true,
+    });
+
     invoice.items = financials.items;
     invoice.subtotal = financials.subtotal;
     invoice.total = financials.total;
@@ -168,58 +188,66 @@ export async function updateDraftInvoice(id, { customerId, items, paymentMethod,
   if (paymentStatus) invoice.paymentStatus = paymentStatus;
 
   await invoice.save();
+
   return invoice;
 }
 
-/**
- * Discards a draft outright. Unlike finalized invoices — which are never
- * hard-deleted, per the immutability guarantee — a draft was never an
- * actual sale, so there's no historical record to preserve; the owner
- * should be able to throw away a bill they started and don't want. Only
- * ever allowed while status is still 'draft'.
- */
 export async function deleteDraftInvoice(id, shopId) {
   const invoice = await Invoice.findOne({ _id: id, shopId });
+
   if (!invoice) return null;
 
   if (invoice.status !== 'draft') {
-    throw new InvoiceError('Only draft invoices can be deleted', 'INVALID_STATE', 409);
+    throw new InvoiceError(
+      'Only draft invoices can be deleted',
+      'INVALID_STATE',
+      409,
+    );
   }
 
   await Invoice.findByIdAndDelete(id);
+
   return invoice;
 }
 
-/**
- * Finalizes a draft: re-derives the customer snapshot and every item's
- * price fresh from the database (ignoring whatever was cached on the
- * draft), allocates a permanent sequential invoice number, and atomically
- * flips status to "finalized" only if the invoice is *still* a draft at
- * that instant. The status-guarded conditional update is what prevents two
- * concurrent finalize calls on the same invoice from both succeeding — the
- * second one's filter simply won't match and it gets a 409 instead of a
- * silently duplicated finalize. The filter also re-checks shopId, so even a
- * theoretical tampered request can never finalize another shop's draft.
- */
 export async function finalizeInvoice(id, shopId) {
   const invoice = await Invoice.findOne({ _id: id, shopId });
+
   if (!invoice) return null;
 
   if (invoice.status !== 'draft') {
-    throw new InvoiceError('Invoice is not a draft and cannot be finalized', 'INVALID_STATE', 409);
+    throw new InvoiceError(
+      'Invoice is not a draft and cannot be finalized',
+      'INVALID_STATE',
+      409,
+    );
   }
 
-  const customer = await buildCustomerSnapshot(invoice.customer.customerId, shopId);
-  const financials = await computeInvoiceFinancials(
-    invoice.items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+  const customer = await buildCustomerSnapshot(
+    invoice.customer.customerId,
     shopId,
-    { allowEmpty: false, requireActiveProducts: true },
+  );
+
+  const financials = await computeInvoiceFinancials(
+    invoice.items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+    })),
+    shopId,
+    {
+      allowEmpty: false,
+      requireActiveProducts: true,
+    },
   );
 
   const invoiceNumber = await getNextInvoiceNumber(shopId);
 
   const finalized = await Invoice.findOneAndUpdate(
-    { _id: id, shopId, status: 'draft' },
+    {
+      _id: id,
+      shopId,
+      status: 'draft',
+    },
     {
       $set: {
         status: 'finalized',
@@ -232,70 +260,86 @@ export async function finalizeInvoice(id, shopId) {
         amountInWords: financials.amountInWords,
       },
     },
-    { returnDocument: 'after' },
+    {
+      returnDocument: 'after',
+    },
   );
 
   if (!finalized) {
-    throw new InvoiceError('Invoice was already finalized or modified by another request', 'CONFLICT', 409);
+    throw new InvoiceError(
+      'Invoice was already finalized or modified by another request',
+      'CONFLICT',
+      409,
+    );
   }
 
   return finalized;
 }
 
-/**
- * Moves paymentStatus pending -> paid and records an audit entry. This is
- * the ONLY mutation allowed on a finalized invoice — invoiceNumber,
- * customer, items, and all money fields are untouched (the $set below
- * literally cannot reach them). The MVP only supports one-directional
- * pending -> paid; any other requested transition (including paid -> paid,
- * a no-op re-request) is rejected rather than silently accepted, so a
- * "Mark as Paid" tap can never be ambiguous about what it did.
- *
- * Race safety mirrors finalizeInvoice: the atomic update's filter re-checks
- * paymentStatus:'pending' (and shopId) at write time, so if two requests
- * race, only the one that's still looking at a genuinely-pending invoice in
- * the right shop succeeds — the loser's filter won't match and it gets
- * CONFLICT instead of a second audit entry for the same transition.
- */
-export async function updatePaymentStatus(id, { newStatus, changedBy }, shopId) {
+export async function updatePaymentStatus(
+  id,
+  { newStatus, changedBy },
+  shopId,
+) {
   const invoice = await Invoice.findOne({ _id: id, shopId });
+
   if (!invoice) return null;
 
   if (invoice.status !== 'finalized') {
-    throw new InvoiceError('Only finalized invoices have a payment status to update', 'INVALID_STATE', 409);
+    throw new InvoiceError(
+      'Only finalized invoices have a payment status to update',
+      'INVALID_STATE',
+      409,
+    );
   }
 
   if (invoice.paymentStatus !== 'pending' || newStatus !== 'paid') {
-    throw new InvoiceError('Payment status can only move from pending to paid', 'INVALID_TRANSITION', 409);
+    throw new InvoiceError(
+      'Payment status can only move from pending to paid',
+      'INVALID_TRANSITION',
+      409,
+    );
   }
 
   const updated = await Invoice.findOneAndUpdate(
-    { _id: id, shopId, status: 'finalized', paymentStatus: 'pending' },
     {
-      $set: { paymentStatus: 'paid' },
+      _id: id,
+      shopId,
+      status: 'finalized',
+      paymentStatus: 'pending',
+    },
+    {
+      $set: {
+        paymentStatus: 'paid',
+      },
       $push: {
-        paymentHistory: { previousStatus: 'pending', newStatus: 'paid', changedBy, changedAt: new Date() },
+        paymentHistory: {
+          previousStatus: 'pending',
+          newStatus: 'paid',
+          changedBy,
+          changedAt: new Date(),
+        },
       },
     },
-    { returnDocument: 'after' },
+    {
+      returnDocument: 'after',
+    },
   );
 
   if (!updated) {
-    throw new InvoiceError('Payment status was already updated by another request', 'CONFLICT', 409);
+    throw new InvoiceError(
+      'Payment status was already updated by another request',
+      'CONFLICT',
+      409,
+    );
   }
 
   return updated;
 }
 
-/**
- * A customer's finalized billing history plus aggregate totals. Cancelled
- * invoices are excluded entirely (not just from the totals) — a cancelled
- * invoice never represents a real completed sale for this customer, so it
- * shouldn't appear in "their bills" any more than a draft would. Drafts are
- * excluded for the same reason: nothing was ever actually billed.
- */
 export async function getInvoicesByCustomer(customerId, query, shopId) {
   const { page, limit, skip } = parsePagination(query);
+
   const filter = {
     shopId: new mongoose.Types.ObjectId(shopId),
     'customer.customerId': new mongoose.Types.ObjectId(customerId),
@@ -303,9 +347,26 @@ export async function getInvoicesByCustomer(customerId, query, shopId) {
   };
 
   const [invoices, totalBills, totalsAgg] = await Promise.all([
-    Invoice.find(filter).sort({ finalizedAt: -1 }).skip(skip).limit(limit),
+    Invoice.find(filter)
+      .sort({ finalizedAt: -1 })
+      .skip(skip)
+      .limit(limit),
+
     Invoice.countDocuments(filter),
-    Invoice.aggregate([{ $match: filter }, { $group: { _id: null, totalPurchaseValue: { $sum: '$total' } } }]),
+
+    Invoice.aggregate([
+      {
+        $match: filter,
+      },
+      {
+        $group: {
+          _id: null,
+          totalPurchaseValue: {
+            $sum: '$total',
+          },
+        },
+      },
+    ]),
   ]);
 
   return {
@@ -317,28 +378,224 @@ export async function getInvoicesByCustomer(customerId, query, shopId) {
   };
 }
 
-/**
- * Sums finalized-invoice totals by payment method, plus the pending total,
- * over an optional base filter (e.g. a date range) — always additionally
- * scoped to shopId. `filter` must already contain real ObjectId instances
- * for any id fields (this runs through aggregate(), which — unlike
- * find()/countDocuments() — does not auto-cast query values).
- */
 export async function getPaymentTotals(filter = {}, shopId) {
-  const baseFilter = { ...filter, shopId: new mongoose.Types.ObjectId(shopId), status: 'finalized' };
+  const baseFilter = {
+    ...filter,
+    shopId: new mongoose.Types.ObjectId(shopId),
+    status: 'finalized',
+  };
 
   const [byMethod, pendingAgg] = await Promise.all([
-    Invoice.aggregate([{ $match: baseFilter }, { $group: { _id: '$paymentMethod', total: { $sum: '$total' } } }]),
     Invoice.aggregate([
-      { $match: { ...baseFilter, paymentStatus: 'pending' } },
-      { $group: { _id: null, total: { $sum: '$total' } } },
+      {
+        $match: baseFilter,
+      },
+      {
+        $group: {
+          _id: '$paymentMethod',
+          total: {
+            $sum: '$total',
+          },
+        },
+      },
+    ]),
+
+    Invoice.aggregate([
+      {
+        $match: {
+          ...baseFilter,
+          paymentStatus: 'pending',
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: '$total',
+          },
+        },
+      },
     ]),
   ]);
 
-  const totals = { cash: 0, upi: 0, card: 0, credit: 0 };
+  const totals = {
+    cash: 0,
+    upi: 0,
+    card: 0,
+    credit: 0,
+  };
+
   byMethod.forEach((row) => {
     totals[row._id] = row.total;
   });
 
-  return { ...totals, pending: pendingAgg[0]?.total || 0 };
+  return {
+    ...totals,
+    pending: pendingAgg[0]?.total || 0,
+  };
+}
+
+export async function getTopProducts(
+  shopId,
+  { limit = 10, dateFrom, dateTo } = {},
+) {
+  const shopObjectId = new mongoose.Types.ObjectId(shopId);
+
+  const match = {
+    shopId: shopObjectId,
+    status: 'finalized',
+  };
+
+  if (dateFrom || dateTo) {
+    match.finalizedAt = {};
+
+    if (dateFrom) {
+      match.finalizedAt.$gte = new Date(dateFrom);
+    }
+
+    if (dateTo) {
+      match.finalizedAt.$lt = new Date(dateTo);
+    }
+  }
+
+  return Invoice.aggregate([
+    {
+      $match: match,
+    },
+
+    {
+      $unwind: '$items',
+    },
+
+    {
+      $group: {
+        _id: '$items.productId',
+        productName: {
+          $first: '$items.name',
+        },
+        unit: {
+          $first: '$items.unit',
+        },
+        totalQuantity: {
+          $sum: '$items.quantity',
+        },
+        totalSales: {
+          $sum: '$items.lineTotal',
+        },
+        timesSold: {
+          $sum: 1,
+        },
+      },
+    },
+
+    {
+      $sort: {
+        totalQuantity: -1,
+      },
+    },
+
+    {
+      $limit: Math.min(
+        Math.max(Number(limit) || 10, 1),
+        50,
+      ),
+    },
+
+    {
+      $project: {
+        _id: 0,
+        productId: '$_id',
+        productName: 1,
+        unit: 1,
+        totalQuantity: 1,
+        totalSales: 1,
+        timesSold: 1,
+      },
+    },
+  ]);
+}
+export async function getCustomersWithOutstandingBalance(shopId) {
+  const shopObjectId = new mongoose.Types.ObjectId(shopId);
+
+  return Customer.aggregate([
+    {
+      $match: {
+        shopId: shopObjectId,
+      },
+    },
+    {
+      $lookup: {
+        from: 'invoices',
+        let: { customerId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  // Invoice has no top-level customerId — the reference is
+                  // nested in the customer snapshot (see models/Invoice.js).
+                  { $eq: ['$customer.customerId', '$$customerId'] },
+                  { $eq: ['$shopId', shopObjectId] },
+                  { $eq: ['$status', 'finalized'] },
+                ],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              totalAmount: { $sum: '$total' },
+              // Invoice has no partial-payment field — paymentStatus is a
+              // binary paid/pending applied to the whole `total`, same
+              // definition getPaymentTotals() already uses for "pending".
+              paidAmount: {
+                $sum: {
+                  $cond: [{ $eq: ['$paymentStatus', 'paid'] }, '$total', 0],
+                },
+              },
+            },
+          },
+        ],
+        as: 'invoiceTotals',
+      },
+    },
+    {
+      $set: {
+        totalAmount: {
+          $ifNull: [{ $arrayElemAt: ['$invoiceTotals.totalAmount', 0] }, 0],
+        },
+        paidAmount: {
+          $ifNull: [{ $arrayElemAt: ['$invoiceTotals.paidAmount', 0] }, 0],
+        },
+      },
+    },
+    {
+      $set: {
+        outstandingAmount: {
+          $subtract: ['$totalAmount', '$paidAmount'],
+        },
+      },
+    },
+    {
+      $match: {
+        outstandingAmount: { $gt: 0 },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        customerId: '$_id',
+        name: 1,
+        mobile: 1,
+        totalAmount: 1,
+        paidAmount: 1,
+        outstandingAmount: 1,
+      },
+    },
+    {
+      $sort: {
+        outstandingAmount: -1,
+      },
+    },
+  ]);
 }

@@ -13,7 +13,7 @@ beforeAll(async () => {
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = 'test-secret';
   process.env.JWT_EXPIRES_IN = '7d';
-  process.env.COOKIE_NAME = 'mahaveer_session';
+  process.env.COOKIE_NAME = 'billing_session';
 
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());
@@ -48,7 +48,7 @@ describe('POST /api/auth/login', () => {
 
     const cookies = res.headers['set-cookie'];
     expect(cookies).toBeDefined();
-    expect(cookies[0]).toMatch(/mahaveer_session=/);
+    expect(cookies[0]).toMatch(/billing_session=/);
     expect(cookies[0]).toMatch(/HttpOnly/i);
   });
 
@@ -101,7 +101,7 @@ describe('GET /api/auth/me', () => {
   });
 
   test('returns 401 for a malformed cookie', async () => {
-    const res = await request(app).get('/api/auth/me').set('Cookie', 'mahaveer_session=not-a-real-token');
+    const res = await request(app).get('/api/auth/me').set('Cookie', 'billing_session=not-a-real-token');
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe('UNAUTHENTICATED');
   });

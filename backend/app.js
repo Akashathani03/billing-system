@@ -10,6 +10,7 @@ import productRoutes from './routes/product.routes.js';
 import invoiceRoutes from './routes/invoice.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import manualBillPhotoRoutes from './routes/manualBillPhoto.routes.js';
+import aiRoutes from './routes/ai.routes.js';
 
 const app = express();
 
@@ -66,6 +67,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/manual-bills', manualBillPhotoRoutes);
+app.use('/api/ai', aiRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

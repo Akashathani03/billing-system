@@ -1,7 +1,7 @@
 {
-  "name": "mahaveer-billing-backend",
+  "name": "billing-system-backend",
   "version": "1.0.0",
-  "description": "Mahaveer Electrical Shop billing system API",
+  "description": "Billing System API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -16,6 +16,7 @@
   "type": "module",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1118.0",
+    "@google/genai": "^2.23.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
